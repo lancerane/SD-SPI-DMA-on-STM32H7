@@ -269,7 +269,7 @@ int xmit_data_dma (	/* 1:OK, 0:Failed */
 	xchg_spi(token);					/* Send token */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
 		HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, buff, count * 512);
-		HAL_Delay(15);
+		HAL_Delay(200);//15
 		xchg_spi(0xFF); xchg_spi(0xFF);	/* Dummy CRC */
 
 		resp = xchg_spi(0xFF);				/* Receive data resp */
@@ -294,6 +294,7 @@ int xmit_data_dma_start (	/* 1:OK, 0:Failed */
 	xchg_spi(token);					/* Send token */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
 	  ret = HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, buff, count * 512);
+	  HAL_Delay(500);
 	}
 	return ret == HAL_OK ? 1 : 0;
 }
@@ -533,22 +534,22 @@ inline DRESULT USER_SPI_write_dma (
 
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* LBA ==> BA conversion (byte addressing cards) */
 
-//	if (count == 1) {	/* Single sector write */
+	if (count == 1) {	/* Single sector write */
 		if ((send_cmd(CMD24, sector) == 0)	/* WRITE_BLOCK */
 			&& xmit_data_dma(buff, count, 0xFE)) {
 			count = 0;
 		}
-//	}
-//	else {				/* Multiple sector write */
-//		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
-//		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
-//			do {
-//				if (!xmit_datablock(buff, 0xFC)) break;
-//				buff += 512;
-//			} while (--count);
-//			if (!xmit_datablock(0, 0xFD)) count = 1;	/* STOP_TRAN token */
-//		}
-//	}
+	}
+	else {				/* Multiple sector write */
+		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
+		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
+			do {
+				if (!xmit_data_dma(buff, 1, 0xFC)) break;
+				buff += 512;
+			} while (--count);
+			if (!xmit_datablock(0, 0xFD)) count = 1;	/* STOP_TRAN token */
+		}
+	}
 	despiselect();
 
 	return count ? RES_ERROR : RES_OK;	/* Return result */
@@ -567,9 +568,21 @@ inline DRESULT USER_SPI_write_dma_start (
 
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* LBA ==> BA conversion (byte addressing cards) */
 
-	if ((send_cmd(CMD24, sector) == 0)	/* WRITE_BLOCK */
-		&& xmit_data_dma_start(buff, count, 0xFE)) {
-		count = 0;
+	if (count == 1) {	/* Single sector write */
+		if ((send_cmd(CMD24, sector) == 0)	/* WRITE_BLOCK */
+			&& xmit_data_dma_start(buff, count, 0xFE)) {
+			count = 0;
+		}
+	}
+	else {				/* Multiple sector write */
+		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
+		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
+			do {
+				if (!xmit_data_dma_start(buff, 1, 0xFC)) break;
+				buff += 512;
+			} while (--count);
+			if (!xmit_datablock(0, 0xFD)) count = 1;	/* STOP_TRAN token */
+		}
 	}
 //	despiselect();
 

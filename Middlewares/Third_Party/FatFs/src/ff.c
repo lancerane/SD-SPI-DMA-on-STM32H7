@@ -3908,20 +3908,20 @@ FRESULT f_write_dma_start (
 			}
 			if (disk_write_dma_start(fs->drv, wbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
 
-#if _FS_MINIMIZE <= 2
-#if _FS_TINY
-			if (fs->winsect - sect < cc) {	/* Refill sector cache if it gets invalidated by the direct write */
-				mem_cpy(fs->win, wbuff + ((fs->winsect - sect) * SS(fs)), SS(fs));
-				fs->wflag = 0;
-			}
-#else
-			if (fp->sect - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
-				mem_cpy(fp->buf, wbuff + ((fp->sect - sect) * SS(fs)), SS(fs));
-				fp->flag &= (BYTE)~FA_DIRTY;
-			}
-#endif
-#endif
-			wcnt = SS(fs) * cc;		/* Number of bytes transferred */
+//#if _FS_MINIMIZE <= 2
+//#if _FS_TINY
+//			if (fs->winsect - sect < cc) {	/* Refill sector cache if it gets invalidated by the direct write */
+//				mem_cpy(fs->win, wbuff + ((fs->winsect - sect) * SS(fs)), SS(fs));
+//				fs->wflag = 0;
+//			}
+//#else
+//			if (fp->sect - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
+//				mem_cpy(fp->buf, wbuff + ((fp->sect - sect) * SS(fs)), SS(fs));
+//				fp->flag &= (BYTE)~FA_DIRTY;
+//			}
+//#endif
+//#endif
+//			wcnt = SS(fs) * cc;		/* Number of bytes transferred */
 		}
 
 		else {

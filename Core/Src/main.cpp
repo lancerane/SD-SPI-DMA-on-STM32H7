@@ -3,11 +3,12 @@
   ******************************************************************************
   * @file           : main.c
   * @brief          : Main program body
-  ******************************************************************************
-  * @attention
   *
   * Demo writing to SD card over SPI using FatFS and DMA
   * Based on https://01001000.xyz/2020-08-09-Tutorial-STM32CubeIDE-SD-card/
+  ******************************************************************************
+  * @attention
+  *
   * Requires mods to:
   * - diskio, ff_gen_drv and ff (in Middlewares dir)
   * - user_diskio, user_diskio_spi (in FATFS dir)
@@ -18,14 +19,22 @@
   * DMA version is f_write_dma which replaces this with a multi-byte HAL_SPI_Transmit_DMA call
   * Because this call is non-blocking, and checks in the func stack must be done only when the transfer
   * is complete, it is necessary to have a 15ms delay after the call
-  * Better: split f_write_dma into twwo funcs: f_write_dma_start and f_write_dma_cplt.
+  * Better: split f_write_dma into two funcs: f_write_dma_start and f_write_dma_cplt.
   * The former initiates the transfer; the latter is performed in a callback at transfer completion
   * Currently the callback func re-performs some of the work done in the initialisation call: this
-  * should be streamlined using persisting objects
+  * should be streamlined using persisting objects.
+  * Multi-block writes must be done block by block, because after each there is some requisite byte
+  * exchange necessary on CPU. The delayed f_write_dma fn shows how this works. In practise, after
+  * initiating each block transfer, it will be necessary to callback to perform this exchange and start transfer
+  * of the next block and then, once the final block has been transferred, do the final housekeeping.
+  * Multi-block writes will therefore save some overhead because there is a bunch of code that is repeated
+  * per single block write, but savings may not be massive because context switching is still  required after
+  * transfer of each individual block.
   *
-  * Works: writing text files
-  * TODO: fix binary file write (currently, no data shows up)
-  * TODO: streamline start and completion callback (much replicated code)
+  * Works: 512byte tx using f_write_dma_start with f_write_dma_cplt on callback
+  * 	   Multi-block transfers using f_write_dma (this blocks in the call stack, using Hal_Delay)
+  * TODO: streamline start and completion callback (lots of replicated code), and ensure safe / valid
+  * TODO: multi-block writes (not priority, unlikely to produce major performance gains)
   *
   ******************************************************************************
   */
@@ -65,7 +74,7 @@ UART_HandleTypeDef huart3;
 FATFS FatFs; 	//Fatfs handle
 FIL fil; 		//File handle
 FRESULT fres; //Result after operations
-char buf[512]; // data to be written
+char buf[1024];
 
 /* USER CODE BEGIN PV */
 
@@ -177,16 +186,17 @@ int main(void)
 
   //Copy in the data
   UINT bytesWrote;
-  readBuf[0] = 'a';
-  for (int i(0); i < 511; i++) {
-	char prev = readBuf[i];
-	readBuf[i+1] = prev + 1;
-  }
+  buf[0] = 'a';
+//  for (int i(0); i < 511; i++) {
+//	char prev = buf[i];
+//	buf[i+1] = prev + 1;
+//  }
 
-  block.data[0].imuData[0] = 124;
+  block.data[0].imuData[0] = 133;
 
   fres = f_write_dma_start(&fil, &block, 512);
-//  fres = f_write_dma(&fil, readBuf, 512, &bytesWrote);
+//  fres = f_write_dma_start(&fil, buf, 1024);
+//  fres = f_write_dma(&fil, buf, 1024, &bytesWrote);
 
   if(fres == FR_OK) {
   	myprintf("Commenced DMA transfer\r\n");
@@ -195,7 +205,51 @@ int main(void)
   	myprintf("DMA start error\r\n");
   }
 
-  HAL_Delay(100);
+  HAL_Delay(500);
+
+
+  f_close(&fil);
+
+  // Unmount
+  f_mount(NULL, "", 0);
+
+
+  /* Now confirm that the write worked correctly */
+  //Open the file system
+  fres = f_mount(&FatFs, "", 1); //1=mount now
+  if (fres != FR_OK) {
+    myprintf("f_mount error (%i)\r\n", fres);
+  while(1);
+  }
+
+  // Reopen the file
+  fres = f_open(&fil, filename, FA_READ);
+  if (fres != FR_OK) {
+    myprintf("f_open error (%i)\r\n");
+    while(1);
+  }
+  myprintf("File opened for reading\r\n");
+
+  block_t readBlock;
+  char readBuf[1024];
+  UINT bytesRead;
+
+  //We can either use f_read OR f_gets to get data out of files
+  //f_gets is a wrapper on f_read that does some string formatting for us
+  fres = f_read(&fil, &readBlock, 512, &bytesRead);
+//  fres = f_read(&fil, &readBuf, 1024, &bytesRead);
+
+  if(fres == FR_OK) {
+  	myprintf("Read %d bytes\r\n", bytesRead);
+  }
+  else {
+  	myprintf("f_read error (%i)\r\n", fres);
+  }
+
+  // Readout the value that we put in earlier
+  int val = readBlock.data[0].imuData[0];
+
+  myprintf("Read value: %d\r\n", val);
 
   f_close(&fil);
 
@@ -221,15 +275,16 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 
 	UINT bytesWrote;
 	fres = f_write_dma_cplt(&fil, &block, 512, &bytesWrote);
+//	fres = f_write_dma_cplt(&fil, buf, 1024, &bytesWrote);
 
-	myprintf("dma transfer complete \r\n");
+	myprintf("dma transfer complete\r\n");
 
 	if(fres == FR_OK) {
-	  	myprintf("Wrote 512 bytes to 'write.txt'!\r\n");
-	  }
-	  else {
-	  	myprintf( "f_write error (%i)\r\n");
-	  }
+	  	myprintf("Wrote %d bytes\r\n", bytesWrote);
+	}
+	else {
+	  myprintf( "f_write error (%i)\r\n");
+	}
 }
 
 
