@@ -1,0 +1,8 @@
+user_diskio.c:86:9:USER_initialize	16	static
+user_diskio.c:102:9:USER_status	16	static
+user_diskio.c:121:9:USER_read	24	static
+user_diskio.c:143:9:USER_write	24	static
+user_diskio.c:159:9:USER_write_dma	24	static
+user_diskio.c:172:10:USER_write_dma_start	24	static
+user_diskio.c:187:9:USER_write_dma_cplt	8	static
+user_diskio.c:207:9:USER_ioctl	16	static
