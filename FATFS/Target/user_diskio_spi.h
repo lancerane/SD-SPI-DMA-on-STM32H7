@@ -37,5 +37,4 @@ extern DRESULT USER_SPI_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
 #if _USE_IOCTL == 1
   extern DRESULT USER_SPI_ioctl (BYTE pdrv, BYTE cmd, void *buff);
 #endif /* _USE_IOCTL == 1 */
-
 #endif

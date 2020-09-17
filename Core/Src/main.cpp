@@ -33,9 +33,7 @@
   *
   * Works: 512byte tx using f_write_dma_start with f_write_dma_cplt on callback
   * 	   Multi-block transfers using f_write_dma (this blocks in the call stack, using Hal_Delay)
-  * TODO: streamline start and completion callback (lots of replicated code), and ensure safe / valid
-  * TODO: multi-block writes (not priority, unlikely to produce major performance gains)
-  *
+  * TODO: streamline start and completion callback (lots of replicated code), and ensure safe / valid  *
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -48,6 +46,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h> //for va_list var arg functions
+
+#include "FatDMA.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,6 +75,8 @@ FATFS FatFs; 	//Fatfs handle
 FIL fil; 		//File handle
 FRESULT fres; //Result after operations
 char buf[1024];
+UINT bytesWrote;
+FatDMA fatDma;
 
 /* USER CODE BEGIN PV */
 
@@ -127,6 +129,8 @@ struct block_t {
 
 
 block_t block;
+block_t block2;
+block_t block3;
 /* USER CODE END 0 */
 
 /**
@@ -159,12 +163,14 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
+//  MX_DMA_Init();
+  fatDma.initialise();
   MX_USART3_UART_Init();
   MX_SPI3_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
   myprintf("\r\n~ SD card demo by kiwih ~\r\n\r\n");
+
 
   HAL_Delay(1000); //a short delay is important to let the SD card settle
 
@@ -185,18 +191,19 @@ int main(void)
   }
 
   //Copy in the data
-  UINT bytesWrote;
+
   buf[0] = 'a';
-//  for (int i(0); i < 511; i++) {
-//	char prev = buf[i];
-//	buf[i+1] = prev + 1;
-//  }
 
-  block.data[0].imuData[0] = 133;
+  block.data[0].imuData[0] = 343;
+  block2.data[0].imuData[0] = 344;
+  block3.data[2].imuData[2] = 377;
 
-  fres = f_write_dma_start(&fil, &block, 512);
-//  fres = f_write_dma_start(&fil, buf, 1024);
-//  fres = f_write_dma(&fil, buf, 1024, &bytesWrote);
+  //  block_t blocks[2] = {block, block2};
+  block_t blocks[3] = {block, block2, block3};
+
+//  fres = fatDma.f_write(&fil, &block, 512, &bytesWrote);
+  fres = fatDma.f_write(&fil, &blocks, 1024+512, &bytesWrote);
+//  fres = f_write_dma(&fil, &blocks, 1024+512, &bytesWrote);
 
   if(fres == FR_OK) {
   	myprintf("Commenced DMA transfer\r\n");
@@ -205,8 +212,8 @@ int main(void)
   	myprintf("DMA start error\r\n");
   }
 
-  HAL_Delay(500);
 
+  HAL_Delay(1000);
 
   f_close(&fil);
 
@@ -231,12 +238,15 @@ int main(void)
   myprintf("File opened for reading\r\n");
 
   block_t readBlock;
+  block_t readBlocks[3];
   char readBuf[1024];
   UINT bytesRead;
 
   //We can either use f_read OR f_gets to get data out of files
   //f_gets is a wrapper on f_read that does some string formatting for us
-  fres = f_read(&fil, &readBlock, 512, &bytesRead);
+//  fres = f_read(&fil, &readBlock, 512, &bytesRead);
+//  fres = f_read(&fil, &readBlocks, 1024, &bytesRead);
+  fres = f_read(&fil, &readBlocks, 1024+512, &bytesRead);
 //  fres = f_read(&fil, &readBuf, 1024, &bytesRead);
 
   if(fres == FR_OK) {
@@ -247,7 +257,8 @@ int main(void)
   }
 
   // Readout the value that we put in earlier
-  int val = readBlock.data[0].imuData[0];
+  int val = readBlocks[2].data[2].imuData[2];
+//  int val = readBlock.data[0].imuData[0];
 
   myprintf("Read value: %d\r\n", val);
 
@@ -270,21 +281,21 @@ int main(void)
   /* USER CODE END 3 */
 }
 
-
+//
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 
-	UINT bytesWrote;
-	fres = f_write_dma_cplt(&fil, &block, 512, &bytesWrote);
+  int res = fatDma.on_block_f_written();
 //	fres = f_write_dma_cplt(&fil, buf, 1024, &bytesWrote);
 
-	myprintf("dma transfer complete\r\n");
+  myprintf("dma transfer complete\r\n");
 
-	if(fres == FR_OK) {
-	  	myprintf("Wrote %d bytes\r\n", bytesWrote);
-	}
-	else {
-	  myprintf( "f_write error (%i)\r\n");
-	}
+  if(res == 1) {
+    myprintf("Wrote %d bytes\r\n", bytesWrote);
+  }
+  else {
+    myprintf( "f_write error (%i)\r\n");
+  }
+
 }
 
 

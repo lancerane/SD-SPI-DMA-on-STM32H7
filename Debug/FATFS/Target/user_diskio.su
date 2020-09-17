@@ -1,8 +1,6 @@
-user_diskio.c:86:9:USER_initialize	16	static
-user_diskio.c:102:9:USER_status	16	static
-user_diskio.c:121:9:USER_read	24	static
-user_diskio.c:143:9:USER_write	24	static
-user_diskio.c:159:9:USER_write_dma	24	static
-user_diskio.c:172:10:USER_write_dma_start	24	static
-user_diskio.c:187:9:USER_write_dma_cplt	8	static
-user_diskio.c:207:9:USER_ioctl	16	static
+user_diskio.cpp:83:9:DSTATUS USER_initialize(BYTE)	16	static
+user_diskio.cpp:99:9:DSTATUS USER_status(BYTE)	16	static
+user_diskio.cpp:118:9:DRESULT USER_read(BYTE, BYTE*, DWORD, UINT)	24	static
+user_diskio.cpp:140:9:DRESULT USER_write(BYTE, const BYTE*, DWORD, UINT)	24	static
+user_diskio.cpp:156:9:DRESULT USER_write_dma(BYTE, const BYTE*, DWORD, UINT)	24	static
+user_diskio.cpp:180:9:DRESULT USER_ioctl(BYTE, BYTE, void*)	16	static

@@ -1,5 +1,5 @@
 Middlewares/Third_Party/FatFs/src/ff.o: \
- ../Middlewares/Third_Party/FatFs/src/ff.c \
+ ../Middlewares/Third_Party/FatFs/src/ff.cpp \
  ../Middlewares/Third_Party/FatFs/src/ff.h \
  ../Middlewares/Third_Party/FatFs/src/integer.h ../FATFS/Target/ffconf.h \
  ../Core/Inc/main.h ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
@@ -34,6 +34,9 @@ Middlewares/Third_Party/FatFs/src/ff.o: \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_spi_ex.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart_ex.h \
+ ../Middlewares/Third_Party/FatFs/src/diskio.h \
+ C:/Users/lance/STM32CubeIDE/workspace_1.4.0/SD_Test_with_DMA_Class/Core/Src/FatDMA.h \
+ ../Middlewares/Third_Party/FatFs/src/ff.h \
  ../Middlewares/Third_Party/FatFs/src/diskio.h
 
 ../Middlewares/Third_Party/FatFs/src/ff.h:
@@ -107,5 +110,11 @@ Middlewares/Third_Party/FatFs/src/ff.o: \
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart.h:
 
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart_ex.h:
+
+../Middlewares/Third_Party/FatFs/src/diskio.h:
+
+C:/Users/lance/STM32CubeIDE/workspace_1.4.0/SD_Test_with_DMA_Class/Core/Src/FatDMA.h:
+
+../Middlewares/Third_Party/FatFs/src/ff.h:
 
 ../Middlewares/Third_Party/FatFs/src/diskio.h:

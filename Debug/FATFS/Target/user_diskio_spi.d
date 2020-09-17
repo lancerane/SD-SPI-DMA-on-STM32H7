@@ -1,4 +1,4 @@
-FATFS/Target/user_diskio_spi.o: ../FATFS/Target/user_diskio_spi.c \
+FATFS/Target/user_diskio_spi.o: ../FATFS/Target/user_diskio_spi.cpp \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
  ../Core/Inc/stm32h7xx_hal_conf.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_rcc.h \
@@ -38,7 +38,9 @@ FATFS/Target/user_diskio_spi.o: ../FATFS/Target/user_diskio_spi.c \
  ../Middlewares/Third_Party/FatFs/src/ff_gen_drv.h \
  ../Middlewares/Third_Party/FatFs/src/diskio.h \
  ../Middlewares/Third_Party/FatFs/src/ff.h ../FATFS/Target/ffconf.h \
- ../Core/Inc/main.h
+ ../Core/Inc/main.h \
+ C:/Users/lance/STM32CubeIDE/workspace_1.4.0/SD_Test_with_DMA_Class/Core/Src/FatDMA.h \
+ ../Middlewares/Third_Party/FatFs/src/ff.h
 
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:
 
@@ -121,3 +123,7 @@ FATFS/Target/user_diskio_spi.o: ../FATFS/Target/user_diskio_spi.c \
 ../FATFS/Target/ffconf.h:
 
 ../Core/Inc/main.h:
+
+C:/Users/lance/STM32CubeIDE/workspace_1.4.0/SD_Test_with_DMA_Class/Core/Src/FatDMA.h:
+
+../Middlewares/Third_Party/FatFs/src/ff.h:

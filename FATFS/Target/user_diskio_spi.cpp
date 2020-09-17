@@ -26,6 +26,8 @@
 
 #include "stm32h7xx_hal.h" /* Provide the low-level HAL functions */
 #include "user_diskio_spi.h"
+#include "FatDMA.h"
+
 
 //Make sure you set #define SD_SPI_HANDLE as some hspix in main.h
 //Make sure you set #define SD_CS_GPIO_Port as some GPIO port in main.h
@@ -268,8 +270,8 @@ int xmit_data_dma (	/* 1:OK, 0:Failed */
 
 	xchg_spi(token);					/* Send token */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
-		HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, buff, count * 512);
-		HAL_Delay(200);//15
+		HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, count * 512);
+		HAL_Delay(15);//15
 		xchg_spi(0xFF); xchg_spi(0xFF);	/* Dummy CRC */
 
 		resp = xchg_spi(0xFF);				/* Receive data resp */
@@ -278,10 +280,8 @@ int xmit_data_dma (	/* 1:OK, 0:Failed */
 	return 1;
 }
 
-static
-int xmit_data_dma_start (	/* 1:OK, 0:Failed */
+int FatDMA::xmit_datablock (	/* 1:OK, 0:Failed */
 	const BYTE *buff,	/* Ponter to 512 byte data to be sent */
-	UINT count,			/* Number of sectors to write (1..128) */
 	BYTE token			/* Token */
 )
 {
@@ -293,14 +293,14 @@ int xmit_data_dma_start (	/* 1:OK, 0:Failed */
 
 	xchg_spi(token);					/* Send token */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
-	  ret = HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, buff, count * 512);
-	  HAL_Delay(500);
+	  nextBuff = buff + 512;
+	  ret = HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, 512);
+
 	}
 	return ret == HAL_OK ? 1 : 0;
 }
 
-static
-int xmit_data_dma_cplt (	/* 1:OK, 0:Failed */
+int FatDMA::xmit_datablock_cplt (	/* 1:OK, 0:Failed */
 )
 {
 	BYTE resp;
@@ -377,7 +377,7 @@ BYTE send_cmd (		/* Return value: R1 resp (bit7==1:Failed to send) */
 /* Initialize disk drive                                                 */
 /*-----------------------------------------------------------------------*/
 
-inline DSTATUS USER_SPI_initialize (
+ DSTATUS USER_SPI_initialize (
 	BYTE drv		/* Physical drive number (0) */
 )
 {
@@ -433,7 +433,7 @@ inline DSTATUS USER_SPI_initialize (
 /* Get disk status                                                       */
 /*-----------------------------------------------------------------------*/
 
-inline DSTATUS USER_SPI_status (
+DSTATUS USER_SPI_status (
 	BYTE drv		/* Physical drive number (0) */
 )
 {
@@ -448,7 +448,7 @@ inline DSTATUS USER_SPI_status (
 /* Read sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
 
-inline DRESULT USER_SPI_read (
+DRESULT USER_SPI_read (
 	BYTE drv,		/* Physical drive number (0) */
 	BYTE *buff,		/* Pointer to the data buffer to store read data */
 	DWORD sector,	/* Start sector number (LBA) */
@@ -487,7 +487,7 @@ inline DRESULT USER_SPI_read (
 /*-----------------------------------------------------------------------*/
 
 #if _USE_WRITE
-inline DRESULT USER_SPI_write (
+DRESULT USER_SPI_write (
 	BYTE drv,			/* Physical drive number (0) */
 	const BYTE *buff,	/* Ponter to the data to write */
 	DWORD sector,		/* Start sector number (LBA) */
@@ -521,7 +521,7 @@ inline DRESULT USER_SPI_write (
 	return count ? RES_ERROR : RES_OK;	/* Return result */
 }
 
-inline DRESULT USER_SPI_write_dma (
+DRESULT USER_SPI_write_dma (
 	BYTE drv,			/* Physical drive number (0) */
 	const BYTE *buff,	/* Ponter to the data to write */
 	DWORD sector,		/* Start sector number (LBA) */
@@ -555,13 +555,16 @@ inline DRESULT USER_SPI_write_dma (
 	return count ? RES_ERROR : RES_OK;	/* Return result */
 }
 
-inline DRESULT USER_SPI_write_dma_start (
+int FatDMA::USER_SPI_write_dma_start ( // 0: OK; 1: error
+
 	BYTE drv,			/* Physical drive number (0) */
 	const BYTE *buff,	/* Ponter to the data to write */
 	DWORD sector,		/* Start sector number (LBA) */
 	UINT count			/* Number of sectors to write (1..128) */
 )
 {
+	int result = 1;
+
 	if (drv || !count) return RES_PARERR;		/* Check parameter */
 	if (Stat & STA_NOINIT) return RES_NOTRDY;	/* Check drive status */
 	if (Stat & STA_PROTECT) return RES_WRPRT;	/* Check write protect */
@@ -569,31 +572,35 @@ inline DRESULT USER_SPI_write_dma_start (
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* LBA ==> BA conversion (byte addressing cards) */
 
 	if (count == 1) {	/* Single sector write */
-		if ((send_cmd(CMD24, sector) == 0)	/* WRITE_BLOCK */
-			&& xmit_data_dma_start(buff, count, 0xFE)) {
-			count = 0;
+		blocksLeft = 1;
+		multi = false;
+		if ((send_cmd(CMD24, sector) == 0) 	/* WRITE_BLOCK */
+		    && xmit_datablock(buff, 0xFE)) { // HAL_OK on the transmit start
+			result = 0;
 		}
+
 	}
 	else {				/* Multiple sector write */
 		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
 		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
-			do {
-				if (!xmit_data_dma_start(buff, 1, 0xFC)) break;
-				buff += 512;
-			} while (--count);
-			if (!xmit_datablock(0, 0xFD)) count = 1;	/* STOP_TRAN token */
+			blocksLeft = count;
+			multi = true;
+			if (xmit_datablock(buff, 0xFC)) return 0;
+
 		}
 	}
-//	despiselect();
 
-	return count ? RES_ERROR : RES_OK;	/* Return result */
+	return result;	/* Return result */
 }
 
 
-inline DRESULT USER_SPI_write_dma_cplt (
+DRESULT FatDMA::USER_SPI_write_dma_cplt (
 )
 {
-	int success = xmit_data_dma_cplt();
+	int success = xmit_datablock_cplt();
+	if (multi) {
+	    xmit_datablock(0, 0xFD);	// STOP_TRAN token
+	}
 	despiselect();
 
 	return success ? RES_OK : RES_ERROR;	/* Return result */
@@ -610,7 +617,7 @@ inline DRESULT USER_SPI_write_dma_cplt (
 /*-----------------------------------------------------------------------*/
 
 #if _USE_IOCTL
-inline DRESULT USER_SPI_ioctl (
+DRESULT USER_SPI_ioctl (
 	BYTE drv,		/* Physical drive number (0) */
 	BYTE cmd,		/* Control command code */
 	void *buff		/* Pointer to the conrtol data */
@@ -671,7 +678,7 @@ inline DRESULT USER_SPI_ioctl (
 		if (!(CardType & CT_SDC)) break;				/* Check if the card is SDC */
 		if (USER_SPI_ioctl(drv, MMC_GET_CSD, csd)) break;	/* Get CSD */
 		if (!(csd[0] >> 6) && !(csd[10] & 0x40)) break;	/* Check if sector erase can be applied to the card */
-		dp = buff; st = dp[0]; ed = dp[1];				/* Load sector block */
+		dp = (DWORD*)buff; st = dp[0]; ed = dp[1];				/* Load sector block */
 		if (!(CardType & CT_BLOCK)) {
 			st *= 512; ed *= 512;
 		}
@@ -689,3 +696,5 @@ inline DRESULT USER_SPI_ioctl (
 	return res;
 }
 #endif
+
+

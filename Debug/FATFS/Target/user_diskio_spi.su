@@ -1,22 +1,22 @@
-user_diskio_spi.c:91:6:SPI_Timer_On	16	static
-user_diskio_spi.c:96:9:SPI_Timer_Status	8	static
-user_diskio_spi.c:106:6:xchg_spi	32	static
-user_diskio_spi.c:118:6:rcvr_spi_multi	32	static
-user_diskio_spi.c:132:6:xmit_spi_multi	24	static
-user_diskio_spi.c:149:5:wait_ready	32	static
-user_diskio_spi.c:176:6:despiselect	8	static
-user_diskio_spi.c:190:5:spiselect	8	static
-user_diskio_spi.c:207:5:rcvr_datablock	24	static
-user_diskio_spi.c:236:5:xmit_datablock	24	static
-user_diskio_spi.c:258:5:xmit_data_dma	32	static
-user_diskio_spi.c:282:5:xmit_data_dma_start	32	static
-user_diskio_spi.c:303:5:xmit_data_dma_cplt	16	static
-user_diskio_spi.c:321:6:send_cmd	24	static
-user_diskio_spi.c:380:16:USER_SPI_initialize	32	static
-user_diskio_spi.c:436:16:USER_SPI_status	16	static
-user_diskio_spi.c:451:16:USER_SPI_read	24	static
-user_diskio_spi.c:490:16:USER_SPI_write	24	static
-user_diskio_spi.c:524:16:USER_SPI_write_dma	24	static
-user_diskio_spi.c:558:16:USER_SPI_write_dma_start	24	static
-user_diskio_spi.c:593:16:USER_SPI_write_dma_cplt	16	static
-user_diskio_spi.c:613:16:USER_SPI_ioctl	56	static
+user_diskio_spi.cpp:93:6:void SPI_Timer_On(uint32_t)	16	static
+user_diskio_spi.cpp:98:9:uint8_t SPI_Timer_Status()	8	static
+user_diskio_spi.cpp:108:6:BYTE xchg_spi(BYTE)	32	static
+user_diskio_spi.cpp:120:6:void rcvr_spi_multi(BYTE*, UINT)	32	static
+user_diskio_spi.cpp:134:6:void xmit_spi_multi(const BYTE*, UINT)	24	static
+user_diskio_spi.cpp:151:5:int wait_ready(UINT)	32	static
+user_diskio_spi.cpp:178:6:void despiselect()	8	static
+user_diskio_spi.cpp:192:5:int spiselect()	8	static
+user_diskio_spi.cpp:209:5:int rcvr_datablock(BYTE*, UINT)	24	static
+user_diskio_spi.cpp:238:5:int xmit_datablock(const BYTE*, BYTE)	24	static
+user_diskio_spi.cpp:260:5:int xmit_data_dma(const BYTE*, UINT, BYTE)	32	static
+user_diskio_spi.cpp:283:5:int FatDMA::xmit_datablock(const BYTE*, BYTE)	32	static
+user_diskio_spi.cpp:303:5:static int FatDMA::xmit_datablock_cplt()	16	static
+user_diskio_spi.cpp:321:6:BYTE send_cmd(BYTE, DWORD)	24	static
+user_diskio_spi.cpp:380:10:DSTATUS USER_SPI_initialize(BYTE)	32	static
+user_diskio_spi.cpp:436:9:DSTATUS USER_SPI_status(BYTE)	16	static
+user_diskio_spi.cpp:451:9:DRESULT USER_SPI_read(BYTE, BYTE*, DWORD, UINT)	24	static
+user_diskio_spi.cpp:490:9:DRESULT USER_SPI_write(BYTE, const BYTE*, DWORD, UINT)	24	static
+user_diskio_spi.cpp:524:9:DRESULT USER_SPI_write_dma(BYTE, const BYTE*, DWORD, UINT)	24	static
+user_diskio_spi.cpp:558:5:int FatDMA::USER_SPI_write_dma_start(BYTE, const BYTE*, DWORD, UINT)	32	static
+user_diskio_spi.cpp:597:9:DRESULT FatDMA::USER_SPI_write_dma_cplt()	24	static
+user_diskio_spi.cpp:620:9:DRESULT USER_SPI_ioctl(BYTE, BYTE, void*)	56	static

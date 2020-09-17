@@ -37,6 +37,7 @@
 #include <string.h>
 #include "ff_gen_drv.h"
 #include "user_diskio_spi.h"
+#include "FatDMA.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 
@@ -53,8 +54,6 @@ DRESULT USER_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
 #if _USE_WRITE == 1
   DRESULT USER_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
   DRESULT USER_write_dma (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
-  DRESULT USER_write_dma_start (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
-  DRESULT USER_write_dma_cplt ();
 #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
   DRESULT USER_ioctl (BYTE pdrv, BYTE cmd, void *buff);
@@ -68,11 +67,9 @@ Diskio_drvTypeDef  USER_Driver =
 #if  _USE_WRITE
   USER_write,
   USER_write_dma,
-  USER_write_dma_start,
-  USER_write_dma_cplt,
 #endif  /* _USE_WRITE == 1 */
 #if  _USE_IOCTL == 1
-  USER_ioctl,
+  USER_ioctl
 #endif /* _USE_IOCTL == 1 */
 };
 
@@ -167,30 +164,6 @@ DRESULT USER_write_dma (
   /* USER CODE HERE */
 //    return RES_OK;
     return USER_SPI_write_dma(pdrv, buff, sector, count);
-//    return USER_SPI_write_dma(pdrv, buff, sector, count);
-  /* USER CODE END WRITE */
-}DRESULT USER_write_dma_start (
-	BYTE pdrv,          /* Physical drive nmuber to identify the drive */
-	const BYTE *buff,   /* Data to be written */
-	DWORD sector,       /* Sector address in LBA */
-	UINT count          /* Number of sectors to write */
-)
-{
-  /* USER CODE BEGIN WRITE */
-  /* USER CODE HERE */
-//    return RES_OK;
-    return USER_SPI_write_dma_start(pdrv, buff, sector, count);
-//    return USER_SPI_write_dma(pdrv, buff, sector, count);
-  /* USER CODE END WRITE */
-}
-
-DRESULT USER_write_dma_cplt (
-)
-{
-  /* USER CODE BEGIN WRITE */
-  /* USER CODE HERE */
-//    return RES_OK;
-    return USER_SPI_write_dma_cplt();
 //    return USER_SPI_write_dma(pdrv, buff, sector, count);
   /* USER CODE END WRITE */
 }
