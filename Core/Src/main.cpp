@@ -74,7 +74,6 @@ UART_HandleTypeDef huart3;
 FATFS FatFs; 	//Fatfs handle
 FIL fil; 		//File handle
 FRESULT fres; //Result after operations
-char buf[1024];
 UINT bytesWrote;
 FatDMA fatDma;
 
@@ -131,6 +130,7 @@ struct block_t {
 block_t block;
 block_t block2;
 block_t block3;
+int n_blocks = 10; //max for a multi block write seems to be 64;
 /* USER CODE END 0 */
 
 /**
@@ -191,110 +191,102 @@ int main(void)
   }
 
   //Copy in the data
+  block.data[10].imuData[10] = n_blocks;
+  block_t blocks[n_blocks];
+  blocks[n_blocks - 1] = block;
 
-  buf[0] = 'a';
-
-  block.data[0].imuData[0] = 343;
-  block2.data[0].imuData[0] = 344;
-  block3.data[2].imuData[2] = 377;
-
-  //  block_t blocks[2] = {block, block2};
-  block_t blocks[3] = {block, block2, block3};
-
-//  fres = fatDma.f_write(&fil, &block, 512, &bytesWrote);
-  fres = fatDma.f_write(&fil, &blocks, 1024+512, &bytesWrote);
-//  fres = f_write_dma(&fil, &blocks, 1024+512, &bytesWrote);
-
-  if(fres == FR_OK) {
-  	myprintf("Commenced DMA transfer\r\n");
-  }
-  else {
-  	myprintf("DMA start error\r\n");
-  }
-
-
-  HAL_Delay(1000);
-
-  f_close(&fil);
-
-  // Unmount
-  f_mount(NULL, "", 0);
-
-
-  /* Now confirm that the write worked correctly */
-  //Open the file system
-  fres = f_mount(&FatFs, "", 1); //1=mount now
-  if (fres != FR_OK) {
-    myprintf("f_mount error (%i)\r\n", fres);
-  while(1);
-  }
-
-  // Reopen the file
-  fres = f_open(&fil, filename, FA_READ);
-  if (fres != FR_OK) {
-    myprintf("f_open error (%i)\r\n");
-    while(1);
-  }
-  myprintf("File opened for reading\r\n");
-
-  block_t readBlock;
-  block_t readBlocks[3];
-  char readBuf[1024];
-  UINT bytesRead;
-
-  //We can either use f_read OR f_gets to get data out of files
-  //f_gets is a wrapper on f_read that does some string formatting for us
-//  fres = f_read(&fil, &readBlock, 512, &bytesRead);
-//  fres = f_read(&fil, &readBlocks, 1024, &bytesRead);
-  fres = f_read(&fil, &readBlocks, 1024+512, &bytesRead);
-//  fres = f_read(&fil, &readBuf, 1024, &bytesRead);
-
-  if(fres == FR_OK) {
-  	myprintf("Read %d bytes\r\n", bytesRead);
-  }
-  else {
-  	myprintf("f_read error (%i)\r\n", fres);
-  }
-
-  // Readout the value that we put in earlier
-  int val = readBlocks[2].data[2].imuData[2];
-//  int val = readBlock.data[0].imuData[0];
-
-  myprintf("Read value: %d\r\n", val);
-
-  f_close(&fil);
-
-  //We're done, so de-mount the drive
-  f_mount(NULL, "", 0);
-
-  myprintf("done\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  // Simulate appending data to the file. DMA method requires a delay after each transfer, equivalent to 15 * n_blocks ms...
+  // CPU f_write requires no such delay
+  myprintf("Starting DMA transfer\r\n");
+  int k = 0;
+  int n_iters = 2;
   while (1)
   {
     /* USER CODE END WHILE */
 
+	if (fatDma.DMAReady) {
+
+	  myprintf("wrote %dbytes\r\n", bytesWrote);
+	  fres = fatDma.f_write(&fil, &blocks, n_blocks*512, &bytesWrote); // DMA
+//	  fres = f_write(&fil, &blocks, n_blocks*512, &bytesWrote); // CPU
+	  HAL_Delay(150);
+	  k++;
+	  if (k == n_iters) break;
+	}
+
     /* USER CODE BEGIN 3 */
   }
+
+    f_close(&fil);
+
+    // Unmount
+    f_mount(NULL, "", 0);
+
+
+    /* Now confirm that the write worked correctly */
+    //Open the file system
+    fres = f_mount(&FatFs, "", 1); //1=mount now
+    if (fres != FR_OK) {
+      myprintf("f_mount error (%i)\r\n", fres);
+    while(1);
+    }
+
+    // Reopen the file
+    fres = f_open(&fil, filename, FA_READ);
+    if (fres != FR_OK) {
+      myprintf("f_open error (%i)\r\n");
+      while(1);
+    }
+    myprintf("File opened for reading\r\n");
+
+    block_t readBlocks[n_blocks];
+    UINT bytesRead = 0;
+
+    //We can either use f_read OR f_gets to get data out of files
+    //f_gets is a wrapper on f_read that does some string formatting for us
+    fres = f_read(&fil, &readBlocks, 512*n_blocks, &bytesRead);
+
+    if(fres == FR_OK) {
+    	myprintf("Read %d bytes\r\n", bytesRead);
+    }
+    else {
+    	myprintf("f_read error (%i)\r\n", fres);
+    }
+
+    // Readout the value that we put in earlier- should be n_blocks
+    int val = readBlocks[n_blocks-1].data[10].imuData[10];
+
+    myprintf("Read value: %d\r\n", val);
+
+    f_close(&fil);
+
+    //We're done, so de-mount the drive
+    f_mount(NULL, "", 0);
+
+    myprintf("done\r\n");
+
+
+
   /* USER CODE END 3 */
 }
 
 //
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 
-  int res = fatDma.on_block_f_written();
-//	fres = f_write_dma_cplt(&fil, buf, 1024, &bytesWrote);
+  int res = fatDma.on_block_written();
 
-  myprintf("dma transfer complete\r\n");
-
-  if(res == 1) {
-    myprintf("Wrote %d bytes\r\n", bytesWrote);
-  }
-  else {
-    myprintf( "f_write error (%i)\r\n");
-  }
+//  myprintf("dma transfer complete\r\n");
+//
+//  if(res == 1) {
+//    myprintf("Wrote %d bytes\r\n", bytesWrote);
+//  }
+//  else {
+//    myprintf( "f_write error (%i)\r\n");
+//  }
 
 }
 

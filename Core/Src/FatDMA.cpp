@@ -25,14 +25,14 @@ void FatDMA::initialise() {
 }
 
 FRESULT FatDMA::f_write (FIL* fp, const void* buff, UINT btw, UINT* bw){
-
+  DMAReady = false;
   this->bw = bw;
   return f_write_dma_start(fp, buff, btw);
 
 
 }
 
-int FatDMA::on_block_f_written(){ //1: ok; 0 err
+int FatDMA::on_block_written(){ //1: ok; 0 err
 
   if (blocksLeft == 1) {
     blocksLeft --;

@@ -36,10 +36,7 @@ extern SPI_HandleTypeDef SD_SPI_HANDLE;
 
 /* Function prototypes */
 
-//#define FCLK_SLOW() { SD_SPI_HANDLE.Instance->I2SPR = 170; }	/* Set SCLK = slow, approx 280 KBits/s*/
-//#define FCLK_FAST() { SD_SPI_HANDLE.Instance->I2SPR = 12; }	/* Set SCLK = fast, approx 4.5 MBits/s */
-
-#define FCLK_SLOW() { SD_SPI_HANDLE.Instance->I2SCFGR = 170; }	/* Set SCLK = slow, approx 280 KBits/s*/
+#define FCLK_SLOW() { SD_SPI_HANDLE.Instance->I2SCFGR = 170; }	/* Set SCLK = slow, approx 280 KBits/ */
 #define FCLK_FAST() { SD_SPI_HANDLE.Instance->I2SCFGR = 12; }	/* Set SCLK = fast, approx 4.5 MBits/s */
 
 #define CS_HIGH()	{HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET);}
@@ -257,9 +254,8 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 }
 
 static
-int xmit_data_dma (	/* 1:OK, 0:Failed */
+int xmit_datablock_dma (	/* 1:OK, 0:Failed */
 	const BYTE *buff,	/* Ponter to 512 byte data to be sent */
-	UINT count,			/* Number of sectors to write (1..128) */
 	BYTE token			/* Token */
 )
 {
@@ -270,7 +266,7 @@ int xmit_data_dma (	/* 1:OK, 0:Failed */
 
 	xchg_spi(token);					/* Send token */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
-		HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, count * 512);
+		HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, 512);
 		HAL_Delay(15);//15
 		xchg_spi(0xFF); xchg_spi(0xFF);	/* Dummy CRC */
 
@@ -295,6 +291,7 @@ int FatDMA::xmit_datablock (	/* 1:OK, 0:Failed */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
 	  nextBuff = buff + 512;
 	  ret = HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, 512);
+//	  ret = HAL_SPI_TransmitReceive_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, (uint8_t*)resp, 512);
 
 	}
 	return ret == HAL_OK ? 1 : 0;
@@ -536,7 +533,7 @@ DRESULT USER_SPI_write_dma (
 
 	if (count == 1) {	/* Single sector write */
 		if ((send_cmd(CMD24, sector) == 0)	/* WRITE_BLOCK */
-			&& xmit_data_dma(buff, count, 0xFE)) {
+			&& xmit_datablock_dma(buff, 0xFE)) {
 			count = 0;
 		}
 	}
@@ -544,7 +541,7 @@ DRESULT USER_SPI_write_dma (
 		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
 		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
 			do {
-				if (!xmit_data_dma(buff, 1, 0xFC)) break;
+				if (!xmit_datablock_dma(buff, 0xFC)) break;
 				buff += 512;
 			} while (--count);
 			if (!xmit_datablock(0, 0xFD)) count = 1;	/* STOP_TRAN token */

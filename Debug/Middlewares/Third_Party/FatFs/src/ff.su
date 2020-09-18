@@ -41,26 +41,26 @@ ff.cpp:3308:9:FRESULT f_open(FIL*, const TCHAR*, BYTE)	104	static
 ff.cpp:3511:9:FRESULT f_read(FIL*, void*, UINT, UINT*)	64	static
 ff.cpp:3611:9:FRESULT f_write(FIL*, const void*, UINT, UINT*)	56	static
 ff.cpp:3726:9:FRESULT FatDMA::f_write_dma_start(FIL*, const void*, UINT)	24	static
-ff.cpp:3751:9:FRESULT FatDMA::f_write_dma_loop()	24	static
-ff.cpp:3827:9:FRESULT FatDMA::f_write_dma_cplt()	16	static
-ff.cpp:3846:9:FRESULT f_write_dma(FIL*, const void*, UINT, UINT*)	56	static
-ff.cpp:3970:9:FRESULT f_sync(FIL*)	32	static
-ff.cpp:4051:9:FRESULT f_close(FIL*)	24	static
-ff.cpp:4239:9:FRESULT f_lseek(FIL*, FSIZE_t)	72	static
-ff.cpp:4400:9:FRESULT f_opendir(DIR*, const TCHAR*)	32	static
-ff.cpp:4470:9:FRESULT f_closedir(DIR*)	24	static
-ff.cpp:4503:9:FRESULT f_readdir(DIR*, FILINFO*)	24	static
-ff.cpp:4591:9:FRESULT f_stat(const TCHAR*, FILINFO*)	72	static
-ff.cpp:4626:9:FRESULT f_getfree(const TCHAR*, DWORD*, FATFS**)	80	static
-ff.cpp:4713:9:FRESULT f_truncate(FIL*)	32	static
-ff.cpp:4763:9:FRESULT f_unlink(const TCHAR*)	128	static
-ff.cpp:4858:9:FRESULT f_mkdir(const TCHAR*)	96	static
-ff.cpp:4955:9:FRESULT f_rename(const TCHAR*, const TCHAR*)	160	static
-ff.cpp:5539:9:FRESULT f_mkfs(const TCHAR*, BYTE, DWORD, void*, UINT)	128	static
-ff.cpp:6068:8:TCHAR* f_gets(TCHAR*, int, FIL*)	40	static
-ff.cpp:6155:6:void putc_bfd(putbuff*, TCHAR)	24	static
-ff.cpp:6211:5:int putc_flush(putbuff*)	24	static
-ff.cpp:6225:6:void putc_init(putbuff*, FIL*)	16	static
-ff.cpp:6236:5:int f_putc(TCHAR, FIL*)	96	static
-ff.cpp:6256:5:int f_puts(const TCHAR*, FIL*)	96	static
-ff.cpp:6276:5:)	164	static
+ff.cpp:3752:9:FRESULT FatDMA::f_write_dma_loop()	24	static
+ff.cpp:3828:9:FRESULT FatDMA::f_write_dma_cplt()	16	static
+ff.cpp:3847:9:FRESULT f_write_dma(FIL*, const void*, UINT, UINT*)	56	static
+ff.cpp:3971:9:FRESULT f_sync(FIL*)	32	static
+ff.cpp:4052:9:FRESULT f_close(FIL*)	24	static
+ff.cpp:4240:9:FRESULT f_lseek(FIL*, FSIZE_t)	72	static
+ff.cpp:4401:9:FRESULT f_opendir(DIR*, const TCHAR*)	32	static
+ff.cpp:4471:9:FRESULT f_closedir(DIR*)	24	static
+ff.cpp:4504:9:FRESULT f_readdir(DIR*, FILINFO*)	24	static
+ff.cpp:4592:9:FRESULT f_stat(const TCHAR*, FILINFO*)	72	static
+ff.cpp:4627:9:FRESULT f_getfree(const TCHAR*, DWORD*, FATFS**)	80	static
+ff.cpp:4714:9:FRESULT f_truncate(FIL*)	32	static
+ff.cpp:4764:9:FRESULT f_unlink(const TCHAR*)	128	static
+ff.cpp:4859:9:FRESULT f_mkdir(const TCHAR*)	96	static
+ff.cpp:4956:9:FRESULT f_rename(const TCHAR*, const TCHAR*)	160	static
+ff.cpp:5540:9:FRESULT f_mkfs(const TCHAR*, BYTE, DWORD, void*, UINT)	128	static
+ff.cpp:6069:8:TCHAR* f_gets(TCHAR*, int, FIL*)	40	static
+ff.cpp:6156:6:void putc_bfd(putbuff*, TCHAR)	24	static
+ff.cpp:6212:5:int putc_flush(putbuff*)	24	static
+ff.cpp:6226:6:void putc_init(putbuff*, FIL*)	16	static
+ff.cpp:6237:5:int f_putc(TCHAR, FIL*)	96	static
+ff.cpp:6257:5:int f_puts(const TCHAR*, FIL*)	96	static
+ff.cpp:6277:5:)	164	static

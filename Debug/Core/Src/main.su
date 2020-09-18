@@ -1,14 +1,14 @@
-FatDMA.h:18:5:FatDMA::FatDMA()	16	static
-FatDMA.h:25:5:FatDMA::~FatDMA()	16	static
-main.cpp:97:6:)	16	static
-main.cpp:140:5:int main()	4696	static
-main.cpp:285:6:void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef*)	24	static
-main.cpp:306:6:void SystemClock_Config()	312	static
-main.cpp:372:13:void MX_SPI3_Init()	8	static
-main.cpp:420:13:void MX_USART3_UART_Init()	8	static
-main.cpp:466:13:void MX_DMA_Init()	16	static
-main.cpp:484:13:void MX_GPIO_Init()	56	static
-main.cpp:599:6:void Error_Handler()	4	static
-main.cpp:605:1:void __static_initialization_and_destruction_0(int, int)	16	static
-main.cpp:605:1:cpp)	8	static
-main.cpp:605:1:cpp)	8	static
+FatDMA.h:20:5:FatDMA::FatDMA()	16	static
+FatDMA.h:27:5:FatDMA::~FatDMA()	16	static
+main.cpp:96:6:)	16	static
+main.cpp:140:5:int main()	112	dynamic
+main.cpp:278:6:void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef*)	24	static
+main.cpp:298:6:void SystemClock_Config()	312	static
+main.cpp:364:13:void MX_SPI3_Init()	8	static
+main.cpp:412:13:void MX_USART3_UART_Init()	8	static
+main.cpp:458:13:void MX_DMA_Init()	16	static
+main.cpp:476:13:void MX_GPIO_Init()	56	static
+main.cpp:591:6:void Error_Handler()	4	static
+main.cpp:597:1:void __static_initialization_and_destruction_0(int, int)	16	static
+main.cpp:597:1:cpp)	8	static
+main.cpp:597:1:cpp)	8	static

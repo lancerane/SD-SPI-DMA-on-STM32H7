@@ -1,5 +1,7 @@
 /*
  * DMA.h
+ * The higher level write subfunctions in the call stack are defined in ff.cpp
+ * The SPI specific funcs are defined in user_deskio_spi.cpp
  *
  *  Created on: 17 Sep 2020
  *      Author: lance
@@ -20,7 +22,7 @@ class FatDMA {
     void initialise();
     FRESULT f_write (FIL* fp, const void* buff, UINT btw, UINT* bw);
     FRESULT f_write_dma_cplt ();
-    int on_block_f_written();
+    int on_block_written();
 
     ~FatDMA(){};
 

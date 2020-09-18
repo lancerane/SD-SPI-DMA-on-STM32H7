@@ -3732,8 +3732,9 @@ FRESULT FatDMA::f_write_dma_start (
 	wbuff = (const BYTE*)buff;   //lost const qualifier
 	this->fp = fp;
 	this->btw = btw;
-	DMAReady = false;
-	wcnt = 0;
+
+	wcnt = 0; // clst = 0; sect = 0;
+	cc = 0; csect = 0;
 
 	res = validate(&fp->obj, &fs);			/* Check validity of the file object */
 	if (res != FR_OK || (res = (FRESULT)fp->err) != FR_OK) LEAVE_FF(fs, res);	/* Check validity */

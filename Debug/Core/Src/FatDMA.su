@@ -1,3 +1,3 @@
 FatDMA.cpp:12:6:void FatDMA::initialise()	24	static
 FatDMA.cpp:27:9:FRESULT FatDMA::f_write(FIL*, const void*, UINT, UINT*)	24	static
-FatDMA.cpp:35:5:int FatDMA::on_block_f_written()	24	static
+FatDMA.cpp:35:5:int FatDMA::on_block_written()	24	static
