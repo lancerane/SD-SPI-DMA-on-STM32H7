@@ -18,22 +18,18 @@
   * byte by byte.
   * DMA version is f_write_dma which replaces this with a multi-byte HAL_SPI_Transmit_DMA call
   * Because this call is non-blocking, and checks in the func stack must be done only when the transfer
-  * is complete, it is necessary to have a 15ms delay after the call
+  * is complete, it is necessary to have a delay after the call
   * Better: split f_write_dma into two funcs: f_write_dma_start and f_write_dma_cplt.
   * The former initiates the transfer; the latter is performed in a callback at transfer completion
-  * Currently the callback func re-performs some of the work done in the initialisation call: this
-  * should be streamlined using persisting objects.
   * Multi-block writes must be done block by block, because after each there is some requisite byte
-  * exchange necessary on CPU. The delayed f_write_dma fn shows how this works. In practise, after
-  * initiating each block transfer, it will be necessary to callback to perform this exchange and start transfer
-  * of the next block and then, once the final block has been transferred, do the final housekeeping.
-  * Multi-block writes will therefore save some overhead because there is a bunch of code that is repeated
+  * exchange necessary on CPU. After initiating each block transfer, it is necessary to callback to
+  * perform this exchange and start transfer of the next block and then, once the final block has been transferred,
+  * do the final housekeeping. This is all handled within the FatDMA class.
+  * Multi-block writes therefore save some overhead because there is a bunch of code that is repeated
   * per single block write, but savings may not be massive because context switching is still  required after
   * transfer of each individual block.
-  *
-  * Works: 512byte tx using f_write_dma_start with f_write_dma_cplt on callback
-  * 	   Multi-block transfers using f_write_dma (this blocks in the call stack, using Hal_Delay)
-  * TODO: streamline start and completion callback (lots of replicated code), and ensure safe / valid  *
+
+  * TODO: Full testing to ensure data is written correctly *
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -120,17 +116,19 @@ const uint16_t dataDim = (512 - 2) / sizeof(data_t);
 const uint16_t fillDim = 512 - 2 - dataDim * sizeof(data_t);
 
 // reduced count and overrun to 8bit: means that dataDim must be max 255 (equivalent to data_t ~2-3bytes)
+#pragma pack(push, 1)
 struct block_t {
   uint8_t count, overrun;
   data_t data[dataDim];
   uint8_t fill[fillDim];
 };
+#pragma pack(pop)
 
 
 block_t block;
 block_t block2;
 block_t block3;
-int n_blocks = 10; //max for a multi block write seems to be 64;
+int n_blocks = 64; //max for a multi block write seems to be 64;
 /* USER CODE END 0 */
 
 /**
@@ -195,14 +193,15 @@ int main(void)
   block_t blocks[n_blocks];
   blocks[n_blocks - 1] = block;
 
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  // Simulate appending data to the file. DMA method requires a delay after each transfer, equivalent to 15 * n_blocks ms...
-  // CPU f_write requires no such delay
+  // Simulate appending data to the file.
   myprintf("Starting DMA transfer\r\n");
   int k = 0;
+  int count = 0;
   int n_iters = 2;
   while (1)
   {
@@ -211,21 +210,23 @@ int main(void)
 	if (fatDma.DMAReady) {
 
 	  myprintf("wrote %dbytes\r\n", bytesWrote);
-	  fres = fatDma.f_write(&fil, &blocks, n_blocks*512, &bytesWrote); // DMA
+	  fres = fatDma.f_write(&fil, &blocks, n_blocks*512, &bytesWrote); // DMA: over twice as fast, with little cpu usage
 //	  fres = f_write(&fil, &blocks, n_blocks*512, &bytesWrote); // CPU
-	  HAL_Delay(150);
 	  k++;
 	  if (k == n_iters) break;
 	}
+	count ++;
 
     /* USER CODE BEGIN 3 */
   }
+
+    HAL_Delay(15 * n_blocks); // Wait for the final write to complete
+    myprintf("Write complete; cpu cycles saved : %d \r\n", count);
 
     f_close(&fil);
 
     // Unmount
     f_mount(NULL, "", 0);
-
 
     /* Now confirm that the write worked correctly */
     //Open the file system

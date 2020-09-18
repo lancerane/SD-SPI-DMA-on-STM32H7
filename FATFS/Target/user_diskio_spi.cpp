@@ -17,7 +17,8 @@
 
 //This code was ported by kiwih from a copywrited (C) library written by ChaN
 //available at http://elm-chan.org/fsw/ff/ffsample.zip
-//(text at http://elm-chan.org/fsw/ff/00index_e.html)
+//(text at http://elm-chan.org/fsw/ff/00index_e.html).
+// Modified by LR to enable fast DMA writes
 
 //This file provides the FatFs driver functions and SPI code required to manage
 //an SPI-connected MMC or compatible SD card with FAT
@@ -227,7 +228,7 @@ int rcvr_datablock (	/* 1:OK, 0:Error */
 
 
 /*-----------------------------------------------------------------------*/
-/* Send a data packet to the MMC                                         */
+/* Send a data packet to the MMC; CPU, byte by byte                      */
 /*-----------------------------------------------------------------------*/
 
 #if _USE_WRITE
@@ -253,6 +254,7 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 	return 1;
 }
 
+// Demo low level DMA fn incorporating a delay //
 static
 int xmit_datablock_dma (	/* 1:OK, 0:Failed */
 	const BYTE *buff,	/* Ponter to 512 byte data to be sent */
@@ -276,6 +278,7 @@ int xmit_datablock_dma (	/* 1:OK, 0:Failed */
 	return 1;
 }
 
+// Correct class based implementation: Start the DMA and exit
 int FatDMA::xmit_datablock (	/* 1:OK, 0:Failed */
 	const BYTE *buff,	/* Ponter to 512 byte data to be sent */
 	BYTE token			/* Token */
@@ -291,12 +294,11 @@ int FatDMA::xmit_datablock (	/* 1:OK, 0:Failed */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
 	  nextBuff = buff + 512;
 	  ret = HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, 512);
-//	  ret = HAL_SPI_TransmitReceive_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, (uint8_t*)resp, 512);
-
 	}
 	return ret == HAL_OK ? 1 : 0;
 }
 
+// To be called upon completion of the datablock transfer (by callback)
 int FatDMA::xmit_datablock_cplt (	/* 1:OK, 0:Failed */
 )
 {
@@ -552,6 +554,10 @@ DRESULT USER_SPI_write_dma (
 	return count ? RES_ERROR : RES_OK;	/* Return result */
 }
 
+// Initialise the DMA transfer. Called by FatDMA.f_write().
+// Determinw whether the transfer is multi-block and save this to the class state,
+// so that appropriate action can be taken upon completion of block transfer ( in the
+// callback)
 int FatDMA::USER_SPI_write_dma_start ( // 0: OK; 1: error
 
 	BYTE drv,			/* Physical drive number (0) */
@@ -591,22 +597,18 @@ int FatDMA::USER_SPI_write_dma_start ( // 0: OK; 1: error
 }
 
 
-DRESULT FatDMA::USER_SPI_write_dma_cplt (
-)
+DRESULT FatDMA::USER_SPI_write_dma_cplt ()
 {
-	int success = xmit_datablock_cplt();
+	int success = xmit_datablock_cplt(); // post-block handshake
 	if (multi) {
-	    xmit_datablock(0, 0xFD);	// STOP_TRAN token
+		xmit_datablock(0, 0xFD);	// STOP_TRAN token
 	}
 	despiselect();
 
 	return success ? RES_OK : RES_ERROR;	/* Return result */
 }
+
 #endif
-
-
-
-
 
 
 /*-----------------------------------------------------------------------*/

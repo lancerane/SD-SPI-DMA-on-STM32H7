@@ -32,6 +32,11 @@ FRESULT FatDMA::f_write (FIL* fp, const void* buff, UINT btw, UINT* bw){
 
 }
 
+// Called from the DMA transfer cplt callback. Determine if there are further blocks to transfer. If so,
+// need to call the lower level funcs to handshake and start the next block. When the final block is done,
+// the necessary logic is handled by higher level f_write_dma_cplt, which checks to see if the transfer was
+// mmultiblock, in which case an additional stop token must be sent
+
 int FatDMA::on_block_written(){ //1: ok; 0 err
 
   if (blocksLeft == 1) {

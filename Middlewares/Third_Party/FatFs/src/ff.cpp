@@ -3722,6 +3722,13 @@ FRESULT f_write (
 	LEAVE_FF(fs, FR_OK);
 }
 
+/*-----------------------------------------------------------------------*/
+/* DMA Write methods                                                     */
+/*-----------------------------------------------------------------------*/
+
+// Class based method: the class maintains the states of vars between initiation and completion
+// of the DMA write. The part of the code that is normally performed in a loop is separated
+// so that it can be called in the callback if necessary, after checking to see if necessary
 
 FRESULT FatDMA::f_write_dma_start (
 	FIL* fp,			/* Pointer to the file object */
@@ -3729,7 +3736,7 @@ FRESULT FatDMA::f_write_dma_start (
 	UINT btw			/* Number of bytes to write */
 )
 {
-	wbuff = (const BYTE*)buff;   //lost const qualifier
+	wbuff = (const BYTE*)buff;
 	this->fp = fp;
 	this->btw = btw;
 
@@ -3749,6 +3756,7 @@ FRESULT FatDMA::f_write_dma_start (
 
 }
 
+// Second part of the standard f_write, replacing standard transfer methods with DMA methods
 FRESULT FatDMA::f_write_dma_loop() {
 
 	if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
@@ -3791,6 +3799,8 @@ FRESULT FatDMA::f_write_dma_loop() {
 			if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
 				cc = fs->csize - csect;
 			}
+
+			// DMA: non-blocking, so once it's started, quit the function stack
 			if (USER_SPI_write_dma_start(fs->drv, wbuff, sect, cc) != 0) ABORT(fs, FR_DISK_ERR);
 			LEAVE_FF(fs, FR_OK);
 
@@ -3825,6 +3835,7 @@ FRESULT FatDMA::f_write_dma_loop() {
 
 }
 
+// Called from the callback at the completion of transfer of all blocks
 FRESULT FatDMA::f_write_dma_cplt ()
 {
 	*bw = 0;	/* Clear write byte counter */
@@ -3841,7 +3852,8 @@ FRESULT FatDMA::f_write_dma_cplt ()
 	LEAVE_FF(fs, FR_OK);
 }
 /*-----------------------------------------------------------------------*/
-/* Write File with DMA                                                          */
+/* DMA method: non class based, with intra function delay to allow non-blocking transfer to complete
+/* For demo purposes only			                                    */
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_write_dma (
@@ -3961,7 +3973,6 @@ FRESULT f_write_dma (
 
 	LEAVE_FF(fs, FR_OK);
 }
-
 
 
 /*-----------------------------------------------------------------------*/

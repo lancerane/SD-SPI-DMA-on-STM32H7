@@ -49,24 +49,24 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-SD_Test_with_DMA_Class.elf \
+SD_Test.elf \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-SD_Test_with_DMA_Class.list \
+SD_Test.list \
 
 OBJCOPY_BIN += \
-SD_Test_with_DMA_Class.bin \
+SD_Test.bin \
 
 
 # All Target
-all: SD_Test_with_DMA_Class.elf secondary-outputs
+all: SD_Test.elf secondary-outputs
 
 # Tool invocations
-SD_Test_with_DMA_Class.elf: $(OBJS) $(USER_OBJS) C:\Users\lance\STM32CubeIDE\workspace_1.4.0\SD_Test_with_DMA_Class\STM32H743ZITX_FLASH.ld
-	arm-none-eabi-g++ -o "SD_Test_with_DMA_Class.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\lance\STM32CubeIDE\workspace_1.4.0\SD_Test_with_DMA_Class\STM32H743ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SD_Test_with_DMA_Class.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+SD_Test.elf: $(OBJS) $(USER_OBJS) C:\Users\lance\STM32CubeIDE\workspace_1.4.0\SD_Test\STM32H743ZITX_FLASH.ld
+	arm-none-eabi-g++ -o "SD_Test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\lance\STM32CubeIDE\workspace_1.4.0\SD_Test\STM32H743ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SD_Test.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -75,13 +75,13 @@ default.size.stdout: $(EXECUTABLES)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-SD_Test_with_DMA_Class.list: $(EXECUTABLES)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "SD_Test_with_DMA_Class.list"
+SD_Test.list: $(EXECUTABLES)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "SD_Test.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-SD_Test_with_DMA_Class.bin: $(EXECUTABLES)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "SD_Test_with_DMA_Class.bin"
+SD_Test.bin: $(EXECUTABLES)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "SD_Test.bin"
 	@echo 'Finished building: $@'
 	@echo ' '
 
