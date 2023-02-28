@@ -12,24 +12,29 @@
   * Requires mods to:
   * - diskio, ff_gen_drv and ff (in Middlewares dir)
   * - user_diskio, user_diskio_spi (in FATFS dir)
+  *
+  * NB lots of issues and hacks - this is just a demo
+  *
   * f_write is called from main. The call stack then goes:
   * f_write -> disk_write -> (fnc_ptr in ff_gen_drv) -> user_write -> user_spi_write
   * -> several more calls eventually culminating in HAL_SPI_Transmit which sends the data
   * byte by byte.
-  * DMA version is f_write_dma which replaces this with a multi-byte HAL_SPI_Transmit_DMA call
-  * Because this call is non-blocking, and checks in the func stack must be done only when the transfer
-  * is complete, it is necessary to have a delay after the call
-  * Better: split f_write_dma into two funcs: f_write_dma_start and f_write_dma_cplt.
+  *
+  * DMA version replaces this with a multi-byte HAL_SPI_Transmit_DMA call. Need to split f_write_dma into two
+  * funcs: f_write_dma_start and f_write_dma_cplt.
   * The former initiates the transfer; the latter is performed in a callback at transfer completion
   * Multi-block writes must be done block by block, because after each there is some requisite byte
   * exchange necessary on CPU. After initiating each block transfer, it is necessary to callback to
   * perform this exchange and start transfer of the next block and then, once the final block has been transferred,
-  * do the final housekeeping. This is all handled within the FatDMA class.
-  * Multi-block writes therefore save some overhead because there is a bunch of code that is repeated
-  * per single block write, but savings may not be massive because context switching is still  required after
-  * transfer of each individual block.
+  * do the final housekeeping. This is handled within the FatDMA class, the methods of which mirror those of the
+  * standard fwrite call stack, with the exception that the generalised disk driver code in diskio.c and user_diskio.c
+  * is skipped, because of difficulties with using static fns of FatDMA (need object downstream in the call stack)
+  * Significant efficiency gains: at 480MHz and SPI baud at max, DMA transfers take just over 1/10 the time of
+  * equivalent CPU transfers, and during some of this time the CPU is free (it's not 100% because of CPU-mediated
+  * handshakes between blocks, amongst other things
 
   * TODO: Full testing to ensure data is written correctly *
+  * TODO: multiblock logic with new refactor
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -43,7 +48,6 @@
 #include <string.h>
 #include <stdarg.h> //for va_list var arg functions
 
-#include "FatDMA.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -65,13 +69,13 @@
 SPI_HandleTypeDef hspi3;
 DMA_HandleTypeDef hdma_spi3_tx;
 UART_HandleTypeDef huart3;
+TIM_HandleTypeDef htim16;
 
 //some variables for FatFs
 FATFS FatFs; 	//Fatfs handle
 FIL fil; 		//File handle
 FRESULT fres; //Result after operations
 UINT bytesWrote;
-FatDMA fatDma;
 
 /* USER CODE BEGIN PV */
 
@@ -80,9 +84,10 @@ FatDMA fatDma;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_SPI3_Init(void);
+static void MX_TIM16_Init(void);
+static void MX_DMA_Init();
 /* USER CODE BEGIN PFP */
 void myprintf(const char *fmt, ...);
 /* USER CODE END PFP */
@@ -98,7 +103,6 @@ void myprintf(const char *fmt, ...) {
 
   int len = strlen(buffer);
   HAL_UART_Transmit(&huart3, (uint8_t*)buffer, len, -1);
-
 }
 
 // What we need to ultimately write
@@ -112,8 +116,9 @@ struct data_t {
 };
 #pragma pack(pop)
 // save 2 bytes for count and overrun
-const uint16_t dataDim = (512 - 2) / sizeof(data_t);
-const uint16_t fillDim = 512 - 2 - dataDim * sizeof(data_t);
+const int blockSize = 512; //4096 seems to work, double this fails
+const uint16_t dataDim = (blockSize - 2) / sizeof(data_t);
+const uint16_t fillDim = blockSize - 2 - dataDim * sizeof(data_t);
 
 // reduced count and overrun to 8bit: means that dataDim must be max 255 (equivalent to data_t ~2-3bytes)
 #pragma pack(push, 1)
@@ -126,9 +131,8 @@ struct block_t {
 
 
 block_t block;
-block_t block2;
-block_t block3;
-int n_blocks = 64; //max for a multi block write seems to be 64;
+int n_blocks = 8; //max for a multi block write seems to be 64;
+int n_blocks_done = 0;
 /* USER CODE END 0 */
 
 /**
@@ -137,104 +141,138 @@ int n_blocks = 64; //max for a multi block write seems to be 64;
   */
 int main(void)
 {
+    /* USER CODE BEGIN 1 */
+	uint16_t timer_val;
+	/* USER CODE END 1 */
 
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* USER CODE BEGIN 1 */
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE END 1 */
+	/* USER CODE BEGIN Init */
+	/* USER CODE END Init */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* USER CODE BEGIN SysInit */
+	/* USER CODE END SysInit */
 
-  /* USER CODE BEGIN Init */
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_DMA_Init();
+	MX_USART3_UART_Init();
+	MX_SPI3_Init();
+	MX_FATFS_Init();
+	MX_TIM16_Init();
+	/* USER CODE BEGIN 2 */
+	myprintf("\r\n~ SD card DMA demo ~\r\n\r\n");
+	// Start timer
+	HAL_TIM_Base_Start(&htim16);
 
-  /* USER CODE END Init */
+	HAL_Delay(100); //a short delay is important to let the SD card settle
 
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-//  MX_DMA_Init();
-  fatDma.initialise();
-  MX_USART3_UART_Init();
-  MX_SPI3_Init();
-  MX_FATFS_Init();
-  /* USER CODE BEGIN 2 */
-  myprintf("\r\n~ SD card demo by kiwih ~\r\n\r\n");
-
-
-  HAL_Delay(1000); //a short delay is important to let the SD card settle
-
-  //Open the file system
-  fres = f_mount(&FatFs, "", 1); //1=mount now
-  if (fres != FR_OK) {
-    myprintf("f_mount error (%i)\r\n", fres);
-  while(1);
-  }
-
-  char filename[50] = "newwrite.bin";
-  fres = f_open(&fil, filename, FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
-  if(fres == FR_OK) {
-    myprintf("file opened\r\n");
-  }
-  else {
-    myprintf("f_open error (%i)\r\n", fres);
-  }
-
-  //Copy in the data
-  block.data[10].imuData[10] = n_blocks;
-  block_t blocks[n_blocks];
-  blocks[n_blocks - 1] = block;
-
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  // Simulate appending data to the file.
-  myprintf("Starting DMA transfer\r\n");
-  int k = 0;
-  int count = 0;
-  int n_iters = 2;
-  while (1)
-  {
-    /* USER CODE END WHILE */
-
-	if (fatDma.DMAReady) {
-
-	  myprintf("wrote %dbytes\r\n", bytesWrote);
-	  fres = fatDma.f_write(&fil, &blocks, n_blocks*512, &bytesWrote); // DMA: over twice as fast, with little cpu usage
-//	  fres = f_write(&fil, &blocks, n_blocks*512, &bytesWrote); // CPU
-	  k++;
-	  if (k == n_iters) break;
+	//Open the file system
+	fres = f_mount(&FatFs, "", 1); //1=mount now
+	if (fres != FR_OK) {
+	myprintf("f_mount error (%i)\r\n", fres);
+	while(1);
 	}
-	count ++;
+
+	char filename[50] = "newwrite.bin";
+	fres = f_open(&fil, filename, FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
+	if(fres == FR_OK) {
+	myprintf("File opened\r\n");
+	}
+	else {
+	myprintf("f_open error (%i)\r\n", fres);
+	}
+
+	//Copy in the data
+	int CPU_val = 5;
+	block_t blocks[n_blocks];
+	block.data[dataDim - 1].imuData[10] = CPU_val;
+	blocks[n_blocks - 1] = block;
+
+	/* USER CODE END 2 */
+
+	/* USER CODE BEGIN WHILE */
+
+	// Simulate appending data to the file.
+
+
+	HAL_Delay(1000); //a short delay is important to let the SD card settle
+
+	/* First, perform a standard write */
+
+	// Test timer
+	// Get current time (in tenths of a ms - see timer scaling in init)
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
+
+	HAL_Delay(50);
+
+
+
+	// Get time elapsed
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
+	myprintf("Timer test: %dus (should be 50000)\r\n", timer_val * 100);
+
+	// Warmup - the first write is always slow, so disregard it
+	fres = f_write(&fil, &blocks, n_blocks*blockSize, &bytesWrote);
+
+	// Start timer
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
+	fres = f_write(&fil, &blocks, n_blocks*blockSize, &bytesWrote);
+	// Stop timer
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
+
+	myprintf("CPU xfer of %d bytes complete in %dms [%dkb/s]\r\n", bytesWrote, timer_val / 10, bytesWrote*10/timer_val);
+
+	//Change the data for testing
+	int DMA_val = 56;
+	block.data[dataDim - 1].imuData[10] = DMA_val;
+	blocks[n_blocks - 1] = block;
+
+	int k = 0;
+
+
+
+    /* USER CODE END WHILE */
+//	if (DMAReady) {
+
+	// Start timer
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
+
+	fres = f_write_dma_start(&fil, &blocks, n_blocks*blockSize, &bytesWrote);
+
+	// Demonstrate non-blocking; note that blocksize > 512bytes is treated as multiple blocks
+	while (n_blocks_done != blockSize / 512 * n_blocks) {
+		k++;
+	}
+
+	// Stop timer
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
+	myprintf("DMA xfer of %d bytes complete in %dms [%dkb/s]\r\n", bytesWrote, timer_val / 10, bytesWrote*10/timer_val);
+
+//	}
+
+	int j = 0;
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
+
+	for (int i=0; i<k; i++){
+		j++;
+	}
+	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
+
+	myprintf("%d CPU ops performed in parallel; this corresponds to %dms of free CPU time\r\n",
+			k, timer_val / 10);
+
 
     /* USER CODE BEGIN 3 */
-  }
-
-    HAL_Delay(15 * n_blocks); // Wait for the final write to complete
-    myprintf("Write complete; cpu cycles saved : %d \r\n", count);
-
     f_close(&fil);
 
-    // Unmount
-    f_mount(NULL, "", 0);
-
-    /* Now confirm that the write worked correctly */
-    //Open the file system
-    fres = f_mount(&FatFs, "", 1); //1=mount now
-    if (fres != FR_OK) {
-      myprintf("f_mount error (%i)\r\n", fres);
-    while(1);
-    }
+    myprintf("File closed\r\n");
 
     // Reopen the file
     fres = f_open(&fil, filename, FA_READ);
@@ -242,14 +280,14 @@ int main(void)
       myprintf("f_open error (%i)\r\n");
       while(1);
     }
-    myprintf("File opened for reading\r\n");
+    myprintf("File re-opened for reading\r\n");
 
-    block_t readBlocks[n_blocks];
+    block_t readBlocks[n_blocks * 3]; // read the 2 standard and DMA written blocks
     UINT bytesRead = 0;
 
     //We can either use f_read OR f_gets to get data out of files
     //f_gets is a wrapper on f_read that does some string formatting for us
-    fres = f_read(&fil, &readBlocks, 512*n_blocks, &bytesRead);
+    fres = f_read(&fil, &readBlocks, blockSize * n_blocks * 3, &bytesRead);
 
     if(fres == FR_OK) {
     	myprintf("Read %d bytes\r\n", bytesRead);
@@ -258,17 +296,20 @@ int main(void)
     	myprintf("f_read error (%i)\r\n", fres);
     }
 
-    // Readout the value that we put in earlier- should be n_blocks
-    int val = readBlocks[n_blocks-1].data[10].imuData[10];
+    /* Readout the value that we put in earlier- should be n_blocks - in this case we're
+    testing the DMA write, since this was last */
+    int DMA_read_val = readBlocks[n_blocks*3-1].data[dataDim - 1].imuData[10];
+    int CPU_read_val = readBlocks[n_blocks*2-1].data[dataDim - 1].imuData[10];
 
-    myprintf("Read value: %d\r\n", val);
+    myprintf("CPU read value: %d (should be %d); DMA read value: %d (should be %d)\r\n",
+    		CPU_read_val, CPU_val, DMA_read_val, DMA_val);
 
     f_close(&fil);
 
-    //We're done, so de-mount the drive
+    // De-mount the drive
     f_mount(NULL, "", 0);
 
-    myprintf("done\r\n");
+    myprintf("Done\r\n");
 
 
 
@@ -278,16 +319,26 @@ int main(void)
 //
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 
-  int res = fatDma.on_block_written();
+	n_blocks_done ++;
 
-//  myprintf("dma transfer complete\r\n");
-//
-//  if(res == 1) {
-//    myprintf("Wrote %d bytes\r\n", bytesWrote);
-//  }
-//  else {
-//    myprintf( "f_write error (%i)\r\n");
-//  }
+	FRESULT res = f_write_dma_end(NULL, NULL, NULL, 0, &bytesWrote, false);
+
+	if (res != FR_OK) {
+		myprintf( "DMA write error (%i)\r\n");
+	}
+
+}
+
+void MX_DMA_Init() {
+
+  // MX DMA Init stuff
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
 
 }
 
@@ -307,22 +358,21 @@ void SystemClock_Config(void)
   HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
   /** Configure the main internal regulator output voltage
   */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 24;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 60;
   RCC_OscInitStruct.PLL.PLLP = 2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
@@ -336,15 +386,15 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
                               |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV1;
-  RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV2;
+  RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -356,7 +406,6 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 }
-
 /**
   * @brief SPI3 Initialization Function
   * @param None
@@ -374,13 +423,16 @@ static void MX_SPI3_Init(void)
   /* USER CODE END SPI3_Init 1 */
   /* SPI3 parameter configuration*/
   hspi3.Instance = SPI3;
+
+//  __IO uint32_t cr2 = hspi3.Instance->CR2;
+
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -395,6 +447,8 @@ static void MX_SPI3_Init(void)
   hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
   hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
   hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
+
+
   if (HAL_SPI_Init(&hspi3) != HAL_OK)
   {
     Error_Handler();
@@ -402,6 +456,7 @@ static void MX_SPI3_Init(void)
   /* USER CODE BEGIN SPI3_Init 2 */
 
   /* USER CODE END SPI3_Init 2 */
+
 
 }
 
@@ -450,22 +505,6 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
 
 }
 
@@ -578,6 +617,38 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+}
+
+/**
+  * @brief TIM16 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM16_Init(void)
+{
+
+  /* USER CODE BEGIN TIM16_Init 0 */
+
+  /* USER CODE END TIM16_Init 0 */
+
+  /* USER CODE BEGIN TIM16_Init 1 */
+
+  /* USER CODE END TIM16_Init 1 */
+  htim16.Instance = TIM16;
+  htim16.Init.Prescaler = 24000 - 1;
+  htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim16.Init.Period = 65535;
+  htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim16.Init.RepetitionCounter = 0;
+  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM16_Init 2 */
+
+  /* USER CODE END TIM16_Init 2 */
 
 }
 

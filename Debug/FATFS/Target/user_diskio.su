@@ -1,6 +1,7 @@
-user_diskio.cpp:83:9:DSTATUS USER_initialize(BYTE)	16	static
-user_diskio.cpp:99:9:DSTATUS USER_status(BYTE)	16	static
-user_diskio.cpp:118:9:DRESULT USER_read(BYTE, BYTE*, DWORD, UINT)	24	static
-user_diskio.cpp:140:9:DRESULT USER_write(BYTE, const BYTE*, DWORD, UINT)	24	static
-user_diskio.cpp:156:9:DRESULT USER_write_dma(BYTE, const BYTE*, DWORD, UINT)	24	static
-user_diskio.cpp:180:9:DRESULT USER_ioctl(BYTE, BYTE, void*)	16	static
+../FATFS/Target/user_diskio.cpp:84:9:DSTATUS USER_initialize(BYTE)	16	static
+../FATFS/Target/user_diskio.cpp:100:9:DSTATUS USER_status(BYTE)	16	static
+../FATFS/Target/user_diskio.cpp:119:9:DRESULT USER_read(BYTE, BYTE*, DWORD, UINT)	24	static
+../FATFS/Target/user_diskio.cpp:141:9:DRESULT USER_write(BYTE, const BYTE*, DWORD, UINT)	24	static
+../FATFS/Target/user_diskio.cpp:157:5:int USER_write_dma_start(BYTE, const BYTE*, DWORD, UINT)	24	static
+../FATFS/Target/user_diskio.cpp:171:9:DRESULT USER_write_dma_end(BYTE, bool, UINT, const BYTE*)	24	static
+../FATFS/Target/user_diskio.cpp:190:9:DRESULT USER_ioctl(BYTE, BYTE, void*)	16	static

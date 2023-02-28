@@ -27,8 +27,6 @@
 
 #include "stm32h7xx_hal.h" /* Provide the low-level HAL functions */
 #include "user_diskio_spi.h"
-#include "FatDMA.h"
-
 
 //Make sure you set #define SD_SPI_HANDLE as some hspix in main.h
 //Make sure you set #define SD_CS_GPIO_Port as some GPIO port in main.h
@@ -39,6 +37,8 @@ extern SPI_HandleTypeDef SD_SPI_HANDLE;
 
 #define FCLK_SLOW() { SD_SPI_HANDLE.Instance->I2SCFGR = 170; }	/* Set SCLK = slow, approx 280 KBits/ */
 #define FCLK_FAST() { SD_SPI_HANDLE.Instance->I2SCFGR = 12; }	/* Set SCLK = fast, approx 4.5 MBits/s */
+
+
 
 #define CS_HIGH()	{HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET);}
 #define CS_LOW()	{HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_RESET);}
@@ -180,8 +180,6 @@ void despiselect (void)
 
 }
 
-
-
 /*-----------------------------------------------------------------------*/
 /* Select card and wait for ready                                        */
 /*-----------------------------------------------------------------------*/
@@ -225,8 +223,6 @@ int rcvr_datablock (	/* 1:OK, 0:Error */
 	return 1;						/* Function succeeded */
 }
 
-
-
 /*-----------------------------------------------------------------------*/
 /* Send a data packet to the MMC; CPU, byte by byte                      */
 /*-----------------------------------------------------------------------*/
@@ -239,7 +235,6 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 )
 {
 	BYTE resp;
-
 
 	if (!wait_ready(500)) return 0;		/* Wait for card ready */
 
@@ -254,52 +249,27 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 	return 1;
 }
 
-// Demo low level DMA fn incorporating a delay //
-static
+
 int xmit_datablock_dma (	/* 1:OK, 0:Failed */
 	const BYTE *buff,	/* Ponter to 512 byte data to be sent */
 	BYTE token			/* Token */
 )
 {
-	BYTE resp;
 
-
-	if (!wait_ready(500)) return 0;		/* Wait for card ready */
-
-	xchg_spi(token);					/* Send token */
-	if (token != 0xFD) {				/* Send data if token is other than StopTran */
-		HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, 512);
-		HAL_Delay(15);//15
-		xchg_spi(0xFF); xchg_spi(0xFF);	/* Dummy CRC */
-
-		resp = xchg_spi(0xFF);				/* Receive data resp */
-		if ((resp & 0x1F) != 0x05) return 0;	/* Function fails if the data packet was not accepted */
-	}
-	return 1;
-}
-
-// Correct class based implementation: Start the DMA and exit
-int FatDMA::xmit_datablock (	/* 1:OK, 0:Failed */
-	const BYTE *buff,	/* Ponter to 512 byte data to be sent */
-	BYTE token			/* Token */
-)
-{
-	BYTE resp;
 	HAL_StatusTypeDef ret;
 
-
 	if (!wait_ready(500)) return 0;		/* Wait for card ready */
 
 	xchg_spi(token);					/* Send token */
 	if (token != 0xFD) {				/* Send data if token is other than StopTran */
-	  nextBuff = buff + 512;
 	  ret = HAL_SPI_Transmit_DMA(&SD_SPI_HANDLE, (uint8_t*)buff, 512);
 	}
 	return ret == HAL_OK ? 1 : 0;
 }
 
 // To be called upon completion of the datablock transfer (by callback)
-int FatDMA::xmit_datablock_cplt (	/* 1:OK, 0:Failed */
+
+int xmit_datablock_dma_cplt (	/* 1:OK, 0:Failed */
 )
 {
 	BYTE resp;
@@ -520,48 +490,9 @@ DRESULT USER_SPI_write (
 	return count ? RES_ERROR : RES_OK;	/* Return result */
 }
 
-DRESULT USER_SPI_write_dma (
+int USER_SPI_write_dma_start ( // 0: OK; 1: error
 	BYTE drv,			/* Physical drive number (0) */
-	const BYTE *buff,	/* Ponter to the data to write */
-	DWORD sector,		/* Start sector number (LBA) */
-	UINT count			/* Number of sectors to write (1..128) */
-)
-{
-	if (drv || !count) return RES_PARERR;		/* Check parameter */
-	if (Stat & STA_NOINIT) return RES_NOTRDY;	/* Check drive status */
-	if (Stat & STA_PROTECT) return RES_WRPRT;	/* Check write protect */
-
-	if (!(CardType & CT_BLOCK)) sector *= 512;	/* LBA ==> BA conversion (byte addressing cards) */
-
-	if (count == 1) {	/* Single sector write */
-		if ((send_cmd(CMD24, sector) == 0)	/* WRITE_BLOCK */
-			&& xmit_datablock_dma(buff, 0xFE)) {
-			count = 0;
-		}
-	}
-	else {				/* Multiple sector write */
-		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
-		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
-			do {
-				if (!xmit_datablock_dma(buff, 0xFC)) break;
-				buff += 512;
-			} while (--count);
-			if (!xmit_datablock(0, 0xFD)) count = 1;	/* STOP_TRAN token */
-		}
-	}
-	despiselect();
-
-	return count ? RES_ERROR : RES_OK;	/* Return result */
-}
-
-// Initialise the DMA transfer. Called by FatDMA.f_write().
-// Determinw whether the transfer is multi-block and save this to the class state,
-// so that appropriate action can be taken upon completion of block transfer ( in the
-// callback)
-int FatDMA::USER_SPI_write_dma_start ( // 0: OK; 1: error
-
-	BYTE drv,			/* Physical drive number (0) */
-	const BYTE *buff,	/* Ponter to the data to write */
+	const BYTE *buff,	/* Pointer to the data to write */
 	DWORD sector,		/* Start sector number (LBA) */
 	UINT count			/* Number of sectors to write (1..128) */
 )
@@ -573,12 +504,9 @@ int FatDMA::USER_SPI_write_dma_start ( // 0: OK; 1: error
 	if (Stat & STA_PROTECT) return RES_WRPRT;	/* Check write protect */
 
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* LBA ==> BA conversion (byte addressing cards) */
-
 	if (count == 1) {	/* Single sector write */
-		blocksLeft = 1;
-		multi = false;
 		if ((send_cmd(CMD24, sector) == 0) 	/* WRITE_BLOCK */
-		    && xmit_datablock(buff, 0xFE)) { // HAL_OK on the transmit start
+		    && xmit_datablock_dma(buff, 0xFE)) { // HAL_OK on the transmit start
 			result = 0;
 		}
 
@@ -586,9 +514,7 @@ int FatDMA::USER_SPI_write_dma_start ( // 0: OK; 1: error
 	else {				/* Multiple sector write */
 		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
 		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
-			blocksLeft = count;
-			multi = true;
-			if (xmit_datablock(buff, 0xFC)) return 0;
+			if (xmit_datablock_dma(buff, 0xFC)) return 0;
 
 		}
 	}
@@ -596,14 +522,19 @@ int FatDMA::USER_SPI_write_dma_start ( // 0: OK; 1: error
 	return result;	/* Return result */
 }
 
-
-DRESULT FatDMA::USER_SPI_write_dma_cplt ()
+DRESULT USER_SPI_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, const BYTE* nextBuff)
 {
-	int success = xmit_datablock_cplt(); // post-block handshake
-	if (multi) {
-		xmit_datablock(0, 0xFD);	// STOP_TRAN token
+
+	int success = xmit_datablock_dma_cplt(); // post-block handshake
+
+	if (blocksLeft > 0) {
+		xmit_datablock_dma(nextBuff, 0xFC);
+	} else {
+		if (was_multi_block) {
+			xmit_datablock(0, 0xFD);	// STOP_TRAN token
+		}
+		despiselect();
 	}
-	despiselect();
 
 	return success ? RES_OK : RES_ERROR;	/* Return result */
 }

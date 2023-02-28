@@ -20,9 +20,6 @@
 
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
-#include "FatDMA.h"
-
-
 
 /*--------------------------------------------------------------------------
 
@@ -3730,147 +3727,18 @@ FRESULT f_write (
 // of the DMA write. The part of the code that is normally performed in a loop is separated
 // so that it can be called in the callback if necessary, after checking to see if necessary
 
-FRESULT FatDMA::f_write_dma_start (
-	FIL* fp,			/* Pointer to the file object */
-	const void* buff,	/* Pointer to the data to be written */
-	UINT btw			/* Number of bytes to write */
-)
-{
-	wbuff = (const BYTE*)buff;
-	this->fp = fp;
-	this->btw = btw;
-
-	wcnt = 0; // clst = 0; sect = 0;
-	cc = 0; csect = 0;
-
-	res = validate(&fp->obj, &fs);			/* Check validity of the file object */
-	if (res != FR_OK || (res = (FRESULT)fp->err) != FR_OK) LEAVE_FF(fs, res);	/* Check validity */
-	if (!(fp->flag & FA_WRITE)) LEAVE_FF(fs, FR_DENIED);	/* Check access mode */
-
-	/* Check fptr wrap-around (file size cannot reach 4GiB on FATxx) */
-	if ((!_FS_EXFAT || fs->fs_type != FS_EXFAT) && (DWORD)(fp->fptr + btw) < (DWORD)fp->fptr) {
-		btw = (UINT)(0xFFFFFFFF - (DWORD)fp->fptr);
-	}
-
-	return f_write_dma_loop();
-
-}
-
-// Second part of the standard f_write, replacing standard transfer methods with DMA methods
-FRESULT FatDMA::f_write_dma_loop() {
-
-	if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
-		csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
-		if (csect == 0) {				/* On the cluster boundary? */
-			if (fp->fptr == 0) {		/* On the top of the file? */
-				clst = fp->obj.sclust;	/* Follow from the origin */
-				if (clst == 0) {		/* If no cluster is allocated, */
-					clst = create_chain(&fp->obj, 0);	/* create a new cluster chain */
-				}
-			} else {					/* On the middle or end of the file */
-#if _USE_FASTSEEK
-				if (fp->cltbl) {
-					clst = clmt_clust(fp, fp->fptr);	/* Get cluster# from the CLMT */
-				} else
-#endif
-				{
-					clst = create_chain(&fp->obj, fp->clust);	/* Follow or stretch cluster chain on the FAT */
-				}
-			}
-			if (clst == 0) ABORT(fs, FR_DISK_ERR);		/* Could not allocate a new cluster (disk full) */
-			if (clst == 1) ABORT(fs, FR_INT_ERR);
-			if (clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
-			fp->clust = clst;			/* Update current cluster */
-			if (fp->obj.sclust == 0) fp->obj.sclust = clst;	/* Set start cluster if the first write */
-		}
-#if _FS_TINY
-		if (fs->winsect == fp->sect && sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Write-back sector cache */
-#else
-		if (fp->flag & FA_DIRTY) {		/* Write-back sector cache */
-			if (disk_write(fs->drv, fp->buf, fp->sect, 1) != RES_OK) ABORT(fs, FR_DISK_ERR);
-			fp->flag &= (BYTE)~FA_DIRTY;
-		}
-#endif
-		sect = clust2sect(fs, fp->clust);	/* Get current sector */
-		if (!sect) ABORT(fs, FR_INT_ERR);
-		sect += csect;
-		cc = btw / SS(fs);				/* When remaining bytes >= sector size, */
-		if (cc) {						/* Write maximum contiguous sectors directly */
-			if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
-				cc = fs->csize - csect;
-			}
-
-			// DMA: non-blocking, so once it's started, quit the function stack
-			if (USER_SPI_write_dma_start(fs->drv, wbuff, sect, cc) != 0) ABORT(fs, FR_DISK_ERR);
-			LEAVE_FF(fs, FR_OK);
-
-		}
-#if _FS_TINY
-		if (fp->fptr >= fp->obj.objsize) {	/* Avoid silly cache filling on the growing edge */
-			if (sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);
-			fs->winsect = sect;
-		}
-#else
-		if (fp->sect != sect && 		/* Fill sector cache with file data */
-			fp->fptr < fp->obj.objsize &&
-			disk_read(fs->drv, fp->buf, sect, 1) != RES_OK) {
-				ABORT(fs, FR_DISK_ERR);
-		}
-#endif
-		fp->sect = sect;
-	}
-
-	wcnt = SS(fs) - (UINT)fp->fptr % SS(fs);	/* Number of bytes left in the sector */
-	if (wcnt > btw) wcnt = btw;					/* Clip it by btw if needed */
-#if _FS_TINY
-	if (move_window(fs, fp->sect) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Move sector window */
-	mem_cpy(fs->win + fp->fptr % SS(fs), wbuff, wcnt);	/* Fit data to the sector */
-	fs->wflag = 1;
-#else
-	mem_cpy(fp->buf + fp->fptr % SS(fs), wbuff, wcnt);	/* Fit data to the sector */
-	fp->flag |= FA_DIRTY;
-#endif
-
-	LEAVE_FF(fs, FR_OK);
-
-}
-
-// Called from the callback at the completion of transfer of all blocks
-FRESULT FatDMA::f_write_dma_cplt ()
-{
-	*bw = 0;	/* Clear write byte counter */
-	if (USER_SPI_write_dma_cplt() != RES_OK) ABORT(fs, FR_DISK_ERR);
-
-	wcnt = SS(fs) * cc;		/* Number of bytes transferred */
-
-	wbuff += wcnt; fp->fptr += wcnt; fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize, *bw += wcnt; btw -= wcnt;
-
-	if(btw) f_write_dma_loop();
-
-	fp->flag |= FA_MODIFIED;				/* Set file change flag */
-
-	LEAVE_FF(fs, FR_OK);
-}
-/*-----------------------------------------------------------------------*/
-/* DMA method: non class based, with intra function delay to allow non-blocking transfer to complete
-/* For demo purposes only			                                    */
-/*-----------------------------------------------------------------------*/
-
-FRESULT f_write_dma (
+FRESULT f_write_dma_start (
 	FIL* fp,			/* Pointer to the file object */
 	const void* buff,	/* Pointer to the data to be written */
 	UINT btw,			/* Number of bytes to write */
 	UINT* bw			/* Pointer to number of bytes written */
 )
 {
+	const BYTE *wbuff = (const BYTE*)buff;
 	FRESULT res;
 	FATFS *fs;
-	DWORD clst, sect;
-	UINT wcnt, cc, csect;
-	const BYTE *wbuff = (const BYTE*)buff;
+	*bw = 0;
 
-
-	*bw = 0;	/* Clear write byte counter */
 	res = validate(&fp->obj, &fs);			/* Check validity of the file object */
 	if (res != FR_OK || (res = (FRESULT)fp->err) != FR_OK) LEAVE_FF(fs, res);	/* Check validity */
 	if (!(fp->flag & FA_WRITE)) LEAVE_FF(fs, FR_DENIED);	/* Check access mode */
@@ -3880,8 +3748,33 @@ FRESULT f_write_dma (
 		btw = (UINT)(0xFFFFFFFF - (DWORD)fp->fptr);
 	}
 
-	for ( ;  btw;							/* Repeat until all data written */
-		wbuff += wcnt, fp->fptr += wcnt, fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize, *bw += wcnt, btw -= wcnt) {
+	return f_write_dma_end(fs, fp, wbuff, btw, bw, true);
+
+}
+
+
+FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw_in, UINT* bw_in, bool is_btw_in) {
+
+
+
+	static DWORD clst, sect;
+	static UINT wcnt, cc, csect, btw, blocksLeft;
+	static FATFS* fs = fs_in;
+	static FIL* fp;
+	static const BYTE* wbuff;
+	static UINT* bw;
+	static bool multi;
+
+	if (is_btw_in) {
+
+
+		fs = fs_in;
+		fp = fp_in;
+		wbuff = wbuff_in;
+		btw = btw_in;
+		bw = bw_in;
+
+
 		if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
 			csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
 			if (csect == 0) {				/* On the cluster boundary? */
@@ -3900,8 +3793,7 @@ FRESULT f_write_dma (
 						clst = create_chain(&fp->obj, fp->clust);	/* Follow or stretch cluster chain on the FAT */
 					}
 				}
-				if (clst == 0) break;		/* Could not allocate a new cluster (disk full) */
-//				if (clst == 0) ABORT(fs, FR_DISK_ERR);		/* Could not allocate a new cluster (disk full) */
+				if (clst == 0) ABORT(fs, FR_DISK_ERR);		/* Could not allocate a new cluster (disk full) */
 				if (clst == 1) ABORT(fs, FR_INT_ERR);
 				if (clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
 				fp->clust = clst;			/* Update current cluster */
@@ -3923,55 +3815,72 @@ FRESULT f_write_dma (
 				if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
 					cc = fs->csize - csect;
 				}
-				if (disk_write_dma(fs->drv, wbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
-#if _FS_MINIMIZE <= 2
-#if _FS_TINY
-				if (fs->winsect - sect < cc) {	/* Refill sector cache if it gets invalidated by the direct write */
-					mem_cpy(fs->win, wbuff + ((fs->winsect - sect) * SS(fs)), SS(fs));
-					fs->wflag = 0;
-				}
-#else
-				if (fp->sect - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
-					mem_cpy(fp->buf, wbuff + ((fp->sect - sect) * SS(fs)), SS(fs));
-					fp->flag &= (BYTE)~FA_DIRTY;
-				}
-#endif
-#endif
-				wcnt = SS(fs) * cc;		/* Number of bytes transferred */
-				continue;
-			}
-#if _FS_TINY
-			if (fp->fptr >= fp->obj.objsize) {	/* Avoid silly cache filling on the growing edge */
-				if (sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);
-				fs->winsect = sect;
-			}
-#else
-			if (fp->sect != sect && 		/* Fill sector cache with file data */
-				fp->fptr < fp->obj.objsize &&
-				disk_read(fs->drv, fp->buf, sect, 1) != RES_OK) {
-					ABORT(fs, FR_DISK_ERR);
-			}
-#endif
-			fp->sect = sect;
+
+				// Save the multiblock status to class vars
+				blocksLeft = cc;
+				multi = cc > 1;
+
+				// DMA: non-blocking, so once it's started, quit the function stack
+				if (disk_write_dma_start(fs->drv, wbuff, sect, cc) != 0) ABORT(fs, FR_DISK_ERR);
+				LEAVE_FF(fs, FR_OK);
 		}
+
 		wcnt = SS(fs) - (UINT)fp->fptr % SS(fs);	/* Number of bytes left in the sector */
+
+	}
 		if (wcnt > btw) wcnt = btw;					/* Clip it by btw if needed */
-#if _FS_TINY
+	#if _FS_TINY
 		if (move_window(fs, fp->sect) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Move sector window */
 		mem_cpy(fs->win + fp->fptr % SS(fs), wbuff, wcnt);	/* Fit data to the sector */
 		fs->wflag = 1;
-#else
+	#else
 		mem_cpy(fp->buf + fp->fptr % SS(fs), wbuff, wcnt);	/* Fit data to the sector */
 		fp->flag |= FA_DIRTY;
+	#endif
+
+		LEAVE_FF(fs, FR_OK);
+
+	} else {
+
+#if _FS_TINY
+		if (fp->fptr >= fp->obj.objsize) {	/* Avoid silly cache filling on the growing edge */
+			if (sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);
+			fs->winsect = sect;
+		}
+#else
+		if (fp->sect != sect && 		/* Fill sector cache with file data */
+			fp->fptr < fp->obj.objsize &&
+			disk_read(fs->drv, fp->buf, sect, 1) != RES_OK) {
+				ABORT(fs, FR_DISK_ERR);
+		}
 #endif
+		fp->sect = sect;
+		blocksLeft--;
+		wbuff += SS(fs);
+
+		if (blocksLeft > 0){
+			if (disk_write_dma_end(fs->drv, multi, blocksLeft, wbuff) != RES_OK) ABORT(fs, FR_DISK_ERR);
+			LEAVE_FF(fs, FR_OK);
+
+		} else {
+			if (disk_write_dma_end(fs->drv, multi, 0, NULL) != RES_OK) ABORT(fs, FR_DISK_ERR);
+
+		}
+
+		wcnt = SS(fs) * cc;		/* Number of bytes transferred */
+
+//		wbuff += wcnt;
+
+		fp->fptr += wcnt; fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize, *bw += wcnt; btw -= wcnt;
+
+		if(btw) f_write_dma_end(fs, fp, wbuff, btw, bw, true);
+
+		fp->flag |= FA_MODIFIED;				/* Set file change flag */
+
+		LEAVE_FF(fs, FR_OK);
+
 	}
 
-
-
-
-	fp->flag |= FA_MODIFIED;				/* Set file change flag */
-
-	LEAVE_FF(fs, FR_OK);
 }
 
 

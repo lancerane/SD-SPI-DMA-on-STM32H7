@@ -434,6 +434,8 @@ HAL_StatusTypeDef HAL_SPI_Init(SPI_HandleTypeDef *hspi)
   hspi->ErrorCode = HAL_SPI_ERROR_NONE;
   hspi->State     = HAL_SPI_STATE_READY;
 
+//  __IO uint32_t cr2 = hspi->Instance->CR2;
+
   return HAL_OK;
 }
 
@@ -2090,6 +2092,7 @@ HAL_StatusTypeDef HAL_SPI_Transmit_DMA(SPI_HandleTypeDef *hspi, uint8_t *pData, 
     hspi->State = HAL_SPI_STATE_READY;
     return errorcode;
   }
+
 
   /* Set the number of data at current transfer */
   if (hspi->hdmatx->Init.Mode == DMA_CIRCULAR)

@@ -30,9 +30,13 @@ extern DSTATUS USER_SPI_status (BYTE pdrv);
 extern DRESULT USER_SPI_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
 #if _USE_WRITE == 1
   extern DRESULT USER_SPI_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
-  extern DRESULT USER_SPI_write_dma (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
-  extern DRESULT USER_SPI_write_dma_start (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
-  extern DRESULT USER_SPI_write_dma_cplt ();
+  extern int USER_SPI_write_dma_start ( // 0: OK; 1: error
+  	BYTE drv,			/* Physical drive number (0) */
+  	const BYTE *buff,	/* Ponter to the data to write */
+  	DWORD sector,		/* Start sector number (LBA) */
+  	UINT count			/* Number of sectors to write (1..128) */
+  );
+  extern DRESULT USER_SPI_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, const BYTE* nextBuff);
 #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
   extern DRESULT USER_SPI_ioctl (BYTE pdrv, BYTE cmd, void *buff);

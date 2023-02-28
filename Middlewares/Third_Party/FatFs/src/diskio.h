@@ -13,7 +13,7 @@ extern "C" {
 #define _USE_IOCTL	1	/* 1: Enable disk_ioctl function */
 
 #include "integer.h"
-
+#include <stdbool.h>
 
 /* Status of Disk Functions */
 typedef BYTE	DSTATUS;
@@ -36,7 +36,8 @@ DSTATUS disk_initialize (BYTE pdrv);
 DSTATUS disk_status (BYTE pdrv);
 DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
-DRESULT disk_write_dma (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
+int disk_write_dma_start (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
+DRESULT disk_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, const BYTE* nextBuff);
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 DWORD get_fattime (void);
 
