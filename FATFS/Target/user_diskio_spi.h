@@ -31,8 +31,6 @@ extern DRESULT USER_SPI_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
 #if _USE_WRITE == 1
   extern DRESULT USER_SPI_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
   extern DRESULT USER_SPI_write_dma ( BYTE drv, const BYTE *buff, DWORD sector, UINT count, bool multi, bool isInitialised);
-  extern int USER_SPI_write_dma_start ( BYTE drv, const BYTE *buff, DWORD sector, UINT count);
-  extern DRESULT USER_SPI_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, const BYTE* nextBuff);
 #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
   extern DRESULT USER_SPI_ioctl (BYTE pdrv, BYTE cmd, void *buff);

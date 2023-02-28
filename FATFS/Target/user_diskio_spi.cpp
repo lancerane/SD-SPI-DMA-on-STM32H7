@@ -478,67 +478,6 @@ DRESULT USER_SPI_write (
 	return count ? RES_ERROR : RES_OK;	/* Return result */
 }
 
-int USER_SPI_write_dma_start ( // 0: OK; 1: error
-	BYTE drv,			/* Physical drive number (0) */
-	const BYTE *buff,	/* Pointer to the data to write */
-	DWORD sector,		/* Start sector number (LBA) */
-	UINT count			/* Number of sectors to write (1..128) */
-)
-{
-	int result = 1;
-
-	if (drv || !count) return RES_PARERR;		/* Check parameter */
-	if (Stat & STA_NOINIT) return RES_NOTRDY;	/* Check drive status */
-	if (Stat & STA_PROTECT) return RES_WRPRT;	/* Check write protect */
-
-	if (!(CardType & CT_BLOCK)) sector *= 512;	/* LBA ==> BA conversion (byte addressing cards) */
-	if (count == 1) {	/* Single sector write */
-		if ((send_cmd(CMD24, sector) == 0) 	/* WRITE_BLOCK */
-		    && xmit_datablock_dma(buff, 0xFE)) { // HAL_OK on the transmit start
-			result = 0;
-		}
-	}
-	else {				/* Multiple sector write */
-		if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
-		if (send_cmd(CMD25, sector) == 0) {	/* WRITE_MULTIPLE_BLOCK */
-			if (xmit_datablock_dma(buff, 0xFC)) return 0;
-
-		}
-	}
-
-	return result;	/* Return result */
-}
-
-// To be called upon completion of the datablock transfer (by callback)
-int xmit_datablock_dma_cplt ()	/* 1:OK, 0:Failed */
-{
-	BYTE resp;
-
-	xchg_spi(0xFF); xchg_spi(0xFF);	/* Dummy CRC */
-	resp = xchg_spi(0xFF);				/* Receive data resp */
-	if ((resp & 0x1F) != 0x05) return 0;	/* Function fails if the data packet was not accepted */
-	return 1;
-}
-
-
-
-DRESULT USER_SPI_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, const BYTE* nextBuff)
-{
-
-	int success = xmit_datablock_dma_cplt(); // post-block handshake
-
-	if (blocksLeft > 0) {
-		xmit_datablock_dma(nextBuff, 0xFC);
-	} else {
-		if (was_multi_block) {
-			xmit_datablock(0, 0xFD);	// STOP_TRAN token
-		}
-		despiselect();
-	}
-
-	return success ? RES_OK : RES_ERROR;	/* Return result */
-}
-
 /** Handle both the transfer commencement, subsequent blocks and completion
  * via the isInitialised bool (true if this is not the first fn entry)
  */
@@ -560,14 +499,17 @@ DRESULT USER_SPI_write_dma (
 			if (!(CardType & CT_BLOCK)) sector *= 512;	/* LBA ==> BA conversion (byte addressing cards) */
 
 			if (count == 1) {	/* Single sector write */
-				if ((send_cmd(CMD24, sector) == 0) 	|| xmit_datablock_dma(buff, 0xFE)) { // HAL_OK on the transmit start
+				if ((send_cmd(CMD24, sector) != 0) 	|| (!xmit_datablock_dma(buff, 0xFE))) { // HAL_OK on the transmit start
 					return RES_ERROR;
 				}
 			}
 			else {												/* Multiple sector write */
 				if (CardType & CT_SDC) send_cmd(ACMD23, count);	/* Predefine number of sectors */
-				if ((send_cmd(CMD25, sector) == 0) || (xmit_datablock_dma(buff, 0xFC))) return RES_ERROR;
+				if (send_cmd(CMD25, sector) == 0) {	 			/* TODO: This should be error handled too*/
+					if (!xmit_datablock_dma(buff, 0xFC)) return RES_ERROR;
+				}
 			}
+
 			break;
 
 	    case true:
@@ -579,11 +521,11 @@ DRESULT USER_SPI_write_dma (
 			resp = xchg_spi(0xFF);							/* Receive data resp */
 			if ((resp & 0x1F) != 0x05) return RES_ERROR;	/* Function fails if the data packet was not accepted */
 
-			if (count > 0) {
+			if (count > 0) {								/* More blocks to go */
 				xmit_datablock_dma(buff, 0xFC);
-			} else {
+			} else {										/* Transfer complete */
 				if (multi) {
-					xmit_datablock(0, 0xFD);				/* STOP_TRAN token */
+					xmit_datablock(0, 0xFD);				/* STOP_TRAN token - use the standard (non-DMA) xmit*/
 				}
 				despiselect();
 			}

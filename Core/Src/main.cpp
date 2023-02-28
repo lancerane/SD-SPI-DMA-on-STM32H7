@@ -13,28 +13,21 @@
   * - diskio, ff_gen_drv and ff (in Middlewares dir)
   * - user_diskio, user_diskio_spi (in FATFS dir)
   *
-  * NB lots of issues and hacks - this is just a demo
-  *
   * f_write is called from main. The call stack then goes:
   * f_write -> disk_write -> (fnc_ptr in ff_gen_drv) -> user_write -> user_spi_write
   * -> several more calls eventually culminating in HAL_SPI_Transmit which sends the data
   * byte by byte.
   *
-  * DMA version replaces this with a multi-byte HAL_SPI_Transmit_DMA call. Need to split f_write_dma into two
-  * funcs: f_write_dma_start and f_write_dma_cplt.
-  * The former initiates the transfer; the latter is performed in a callback at transfer completion
+  * DMA version replaces this with a multi-byte HAL_SPI_Transmit_DMA call.
   * Multi-block writes must be done block by block, because after each there is some requisite byte
   * exchange necessary on CPU. After initiating each block transfer, it is necessary to callback to
   * perform this exchange and start transfer of the next block and then, once the final block has been transferred,
-  * do the final housekeeping. This is handled within the FatDMA class, the methods of which mirror those of the
-  * standard fwrite call stack, with the exception that the generalised disk driver code in diskio.c and user_diskio.c
-  * is skipped, because of difficulties with using static fns of FatDMA (need object downstream in the call stack)
+  * do the final housekeeping.
   * Significant efficiency gains: at 480MHz and SPI baud at max, DMA transfers take just over 1/10 the time of
   * equivalent CPU transfers, and during some of this time the CPU is free (it's not 100% because of CPU-mediated
-  * handshakes between blocks, amongst other things
+  * handshakes between blocks, etc.
 
   * TODO: Full testing to ensure data is written correctly *
-  * TODO: multiblock logic with new refactor
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -230,7 +223,7 @@ int main(void)
 	myprintf("CPU xfer of %d bytes complete in %dms [%dkb/s]\r\n", bytesWrote, timer_val / 10, bytesWrote*10/timer_val);
 
 	//Change the data for testing
-	int DMA_val = 56;
+	int DMA_val = 99;
 	block.data[dataDim - 1].imuData[10] = DMA_val;
 	blocks[n_blocks - 1] = block;
 

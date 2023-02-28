@@ -120,27 +120,6 @@ DRESULT disk_write_dma (
   return res;
 }
 
-int disk_write_dma_start (
-	BYTE pdrv,		/* Physical drive nmuber to identify the drive */
-	const BYTE *buff,	/* Data to be written */
-	DWORD sector,		/* Sector address in LBA */
-	UINT count        	/* Number of sectors to write */
-)
-{
-  DRESULT res;
-
-  res = disk.drv[pdrv]->disk_write_dma_start(disk.lun[pdrv], buff, sector, count);
-  return res;
-}
-
-DRESULT disk_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, const BYTE* nextBuff)
-{
-  DRESULT res;
-
-  res = disk.drv[pdrv]->disk_write_dma_end(disk.lun[pdrv], was_multi_block, blocksLeft, nextBuff);
-  return res;
-}
-
 #endif /* _USE_WRITE == 1 */
 
 /**

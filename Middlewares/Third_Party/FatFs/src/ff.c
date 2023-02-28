@@ -3854,11 +3854,10 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 		wbuff += SS(fs);
 
 		if (blocksLeft > 0){
-			if (disk_write_dma_end(fs->drv, multi, blocksLeft, wbuff) != RES_OK) ABORT(fs, FR_DISK_ERR);
+			if (disk_write_dma (fs->drv, wbuff, sect, blocksLeft, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
 			LEAVE_FF(fs, FR_OK);
 
 		} else {
-//			if (disk_write_dma_end(fs->drv, multi, 0, NULL) != RES_OK) ABORT(fs, FR_DISK_ERR);
 			if (disk_write_dma (fs->drv, NULL, sect, 0, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
 		}
 
