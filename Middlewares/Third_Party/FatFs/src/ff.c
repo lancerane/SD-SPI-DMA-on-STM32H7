@@ -3759,7 +3759,8 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 
 	static DWORD clst, sect;
 	static UINT wcnt, cc, csect, btw, blocksLeft;
-	static FATFS* fs = fs_in;
+//	static FATFS* fs = fs_in;
+	static FATFS* fs;
 	static FIL* fp;
 	static const BYTE* wbuff;
 	static UINT* bw;

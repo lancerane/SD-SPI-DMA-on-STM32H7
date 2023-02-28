@@ -1,5 +1,5 @@
 Middlewares/Third_Party/FatFs/src/ff.o: \
- ../Middlewares/Third_Party/FatFs/src/ff.cpp \
+ ../Middlewares/Third_Party/FatFs/src/ff.c \
  ../Middlewares/Third_Party/FatFs/src/ff.h \
  ../Middlewares/Third_Party/FatFs/src/integer.h ../FATFS/Target/ffconf.h \
  ../Core/Inc/main.h ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
