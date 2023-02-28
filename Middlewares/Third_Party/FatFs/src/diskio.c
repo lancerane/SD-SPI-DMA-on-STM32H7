@@ -105,6 +105,21 @@ DRESULT disk_write (
   return res;
 }
 
+DRESULT disk_write_dma (
+	BYTE pdrv,		/* Physical drive nmuber to identify the drive */
+	const BYTE *buff,	/* Data to be written */
+	DWORD sector,		/* Sector address in LBA */
+	UINT count,        	/* Number of sectors to write */
+	bool multi,
+	bool isInitialised
+)
+{
+  DRESULT res;
+
+  res = disk.drv[pdrv]->disk_write_dma(disk.lun[pdrv], buff, sector, count, multi, isInitialised);
+  return res;
+}
+
 int disk_write_dma_start (
 	BYTE pdrv,		/* Physical drive nmuber to identify the drive */
 	const BYTE *buff,	/* Data to be written */

@@ -52,6 +52,7 @@ DSTATUS USER_status (BYTE pdrv);
 DRESULT USER_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
 #if _USE_WRITE == 1
   DRESULT USER_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
+  DRESULT USER_write_dma (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count, bool multi, bool isInitialised);
   int USER_write_dma_start (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
   DRESULT USER_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, const BYTE* nextBuff);
 #endif /* _USE_WRITE == 1 */
@@ -66,6 +67,7 @@ Diskio_drvTypeDef  USER_Driver =
   USER_read,
 #if  _USE_WRITE
   USER_write,
+  USER_write_dma,
   USER_write_dma_start,
   USER_write_dma_end,
 #endif  /* _USE_WRITE == 1 */
@@ -174,6 +176,22 @@ DRESULT USER_write_dma_end (BYTE pdrv, bool was_multi_block, UINT blocksLeft, co
   /* USER CODE HERE */
 //    return RES_OK;
     return USER_SPI_write_dma_end(pdrv, was_multi_block, blocksLeft, nextBuff);
+  /* USER CODE END WRITE */
+}
+
+DRESULT USER_write_dma (
+	BYTE pdrv,          /* Physical drive nmuber to identify the drive */
+	const BYTE *buff,   /* Data to be written */
+	DWORD sector,       /* Sector address in LBA */
+	UINT count,          /* Number of sectors to write */
+	bool multi,
+	bool isInitialised
+)
+{
+  /* USER CODE BEGIN WRITE */
+  /* USER CODE HERE */
+//    return RES_OK;
+    return USER_SPI_write_dma(pdrv, buff, sector, count, multi, isInitialised);
   /* USER CODE END WRITE */
 }
 

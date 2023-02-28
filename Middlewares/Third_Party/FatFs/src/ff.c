@@ -3723,10 +3723,6 @@ FRESULT f_write (
 /* DMA Write methods                                                     */
 /*-----------------------------------------------------------------------*/
 
-// Class based method: the class maintains the states of vars between initiation and completion
-// of the DMA write. The part of the code that is normally performed in a loop is separated
-// so that it can be called in the callback if necessary, after checking to see if necessary
-
 FRESULT f_write_dma_start (
 	FIL* fp,			/* Pointer to the file object */
 	const void* buff,	/* Pointer to the data to be written */
@@ -3755,11 +3751,8 @@ FRESULT f_write_dma_start (
 
 FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw_in, UINT* bw_in, bool is_btw_in) {
 
-
-
 	static DWORD clst, sect;
 	static UINT wcnt, cc, csect, btw, blocksLeft;
-//	static FATFS* fs = fs_in;
 	static FATFS* fs;
 	static FIL* fp;
 	static const BYTE* wbuff;
@@ -3822,7 +3815,8 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 				multi = cc > 1;
 
 				// DMA: non-blocking, so once it's started, quit the function stack
-				if (disk_write_dma_start(fs->drv, wbuff, sect, cc) != 0) ABORT(fs, FR_DISK_ERR);
+//				if (disk_write_dma_start(fs->drv, wbuff, sect, cc) != 0) ABORT(fs, FR_DISK_ERR);
+				if (disk_write_dma (fs->drv, wbuff, sect, cc, multi, false) != RES_OK) ABORT(fs, FR_DISK_ERR);
 				LEAVE_FF(fs, FR_OK);
 		}
 
@@ -3864,8 +3858,8 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 			LEAVE_FF(fs, FR_OK);
 
 		} else {
-			if (disk_write_dma_end(fs->drv, multi, 0, NULL) != RES_OK) ABORT(fs, FR_DISK_ERR);
-
+//			if (disk_write_dma_end(fs->drv, multi, 0, NULL) != RES_OK) ABORT(fs, FR_DISK_ERR);
+			if (disk_write_dma (fs->drv, NULL, sect, 0, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
 		}
 
 		wcnt = SS(fs) * cc;		/* Number of bytes transferred */
@@ -3881,7 +3875,6 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 		LEAVE_FF(fs, FR_OK);
 
 	}
-
 }
 
 

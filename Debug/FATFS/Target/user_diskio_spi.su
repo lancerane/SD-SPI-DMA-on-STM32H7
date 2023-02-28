@@ -9,12 +9,13 @@
 ../FATFS/Target/user_diskio_spi.cpp:205:5:int rcvr_datablock(BYTE*, UINT)	24	static
 ../FATFS/Target/user_diskio_spi.cpp:232:5:int xmit_datablock(const BYTE*, BYTE)	24	static
 ../FATFS/Target/user_diskio_spi.cpp:253:5:int xmit_datablock_dma(const BYTE*, BYTE)	24	static
-../FATFS/Target/user_diskio_spi.cpp:272:5:int xmit_datablock_dma_cplt()	16	static
-../FATFS/Target/user_diskio_spi.cpp:290:6:BYTE send_cmd(BYTE, DWORD)	24	static
-../FATFS/Target/user_diskio_spi.cpp:349:10:DSTATUS USER_SPI_initialize(BYTE)	32	static
-../FATFS/Target/user_diskio_spi.cpp:405:9:DSTATUS USER_SPI_status(BYTE)	16	static
-../FATFS/Target/user_diskio_spi.cpp:420:9:DRESULT USER_SPI_read(BYTE, BYTE*, DWORD, UINT)	24	static
-../FATFS/Target/user_diskio_spi.cpp:459:9:DRESULT USER_SPI_write(BYTE, const BYTE*, DWORD, UINT)	24	static
-../FATFS/Target/user_diskio_spi.cpp:493:5:int USER_SPI_write_dma_start(BYTE, const BYTE*, DWORD, UINT)	32	static
+../FATFS/Target/user_diskio_spi.cpp:278:6:BYTE send_cmd(BYTE, DWORD)	24	static
+../FATFS/Target/user_diskio_spi.cpp:337:10:DSTATUS USER_SPI_initialize(BYTE)	32	static
+../FATFS/Target/user_diskio_spi.cpp:393:9:DSTATUS USER_SPI_status(BYTE)	16	static
+../FATFS/Target/user_diskio_spi.cpp:408:9:DRESULT USER_SPI_read(BYTE, BYTE*, DWORD, UINT)	24	static
+../FATFS/Target/user_diskio_spi.cpp:447:9:DRESULT USER_SPI_write(BYTE, const BYTE*, DWORD, UINT)	24	static
+../FATFS/Target/user_diskio_spi.cpp:481:5:int USER_SPI_write_dma_start(BYTE, const BYTE*, DWORD, UINT)	32	static
+../FATFS/Target/user_diskio_spi.cpp:513:5:int xmit_datablock_dma_cplt()	16	static
 ../FATFS/Target/user_diskio_spi.cpp:525:9:DRESULT USER_SPI_write_dma_end(BYTE, bool, UINT, const BYTE*)	32	static
-../FATFS/Target/user_diskio_spi.cpp:550:9:DRESULT USER_SPI_ioctl(BYTE, BYTE, void*)	56	static
+../FATFS/Target/user_diskio_spi.cpp:545:9:DRESULT USER_SPI_write_dma(BYTE, const BYTE*, DWORD, UINT, bool, bool)	32	static
+../FATFS/Target/user_diskio_spi.cpp:606:9:DRESULT USER_SPI_ioctl(BYTE, BYTE, void*)	56	static
