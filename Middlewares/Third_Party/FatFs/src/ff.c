@@ -3744,13 +3744,14 @@ FRESULT f_write_dma (
 		btw = (UINT)(0xFFFFFFFF - (DWORD)fp->fptr);
 	}
 
-	return f_write_dma_end(fs, fp, wbuff, btw, bw, true);
+	return _f_write_dma_next(fs, fp, wbuff, btw, bw, true);
 
 }
 
 
-FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw_in, UINT* bw_in, bool is_btw_in) {
+FRESULT _f_write_dma_next(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw_in, UINT* bw_in, bool is_btw_in) {
 
+	/* Statics to retain state across callbacks */
 	static DWORD clst, sect;
 	static UINT wcnt, cc, csect, btw, blocksLeft;
 	static FATFS* fs;
@@ -3761,13 +3762,11 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 
 	if (is_btw_in) {
 
-
 		fs = fs_in;
 		fp = fp_in;
 		wbuff = wbuff_in;
 		btw = btw_in;
 		bw = bw_in;
-
 
 		if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
 			csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
@@ -3834,7 +3833,7 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 
 		LEAVE_FF(fs, FR_OK);
 
-	} else {
+	} else { /* entry via callback: end of transfer or next block */
 
 #if _FS_TINY
 		if (fp->fptr >= fp->obj.objsize) {	/* Avoid silly cache filling on the growing edge */
@@ -3850,26 +3849,19 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 #endif
 		fp->sect = sect;
 		blocksLeft--;
-		wbuff += SS(fs);
+		wbuff += SS(fs); /* increment this every block */
 
 		if (disk_write_dma (fs->drv, wbuff, sect, blocksLeft, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
 		if (blocksLeft > 0) LEAVE_FF(fs, FR_OK);
 
-//		if (blocksLeft > 0){
-//			if (disk_write_dma (fs->drv, wbuff, sect, blocksLeft, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
-//			LEAVE_FF(fs, FR_OK);
-//
-//		} else {
-//			if (disk_write_dma (fs->drv, NULL, sect, 0, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
-//		}
 
+		/* Increment these only once all blocks are done */
 		wcnt = SS(fs) * cc;		/* Number of bytes transferred */
+		fp->fptr += wcnt;
+		fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize, *bw += wcnt;
+		btw -= wcnt;
 
-//		wbuff += wcnt;
-
-		fp->fptr += wcnt; fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize, *bw += wcnt; btw -= wcnt;
-
-		if(btw) f_write_dma_end(fs, fp, wbuff, btw, bw, true);
+		if(btw) _f_write_dma_next(fs, fp, wbuff, btw, bw, true);
 
 		fp->flag |= FA_MODIFIED;				/* Set file change flag */
 

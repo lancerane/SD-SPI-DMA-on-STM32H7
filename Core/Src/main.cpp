@@ -301,7 +301,7 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 
 	n_blocks_done ++;
 
-	FRESULT res = f_write_dma_end(NULL, NULL, NULL, 0, &bytesWrote, false);
+	FRESULT res = _f_write_dma_next(NULL, NULL, NULL, 0, &bytesWrote, false);
 
 	if (res != FR_OK) {
 		myprintf( "DMA write error (%i)\r\n");
