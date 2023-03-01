@@ -29,7 +29,6 @@
 #include "ff.h"
 #include "stdint.h"
 
-
 /* Exported types ------------------------------------------------------------*/
 
 /**
@@ -38,16 +37,16 @@
 typedef struct
 {
   DSTATUS (*disk_initialize) (BYTE);                     				/*!< Initialize Disk Drive                     */
-  DSTATUS (*disk_status)     (BYTE);                     /*!< Get Disk Status                           */
-  DRESULT (*disk_read)       (BYTE, BYTE*, DWORD, UINT);       /*!< Read Sector(s)                            */
+  DSTATUS (*disk_status)     (BYTE);                     				/*!< Get Disk Status                           */
+  DRESULT (*disk_read)       (BYTE, BYTE*, DWORD, UINT);       			/*!< Read Sector(s)                            */
 #if _USE_WRITE == 1
-  DRESULT (*disk_write)      (BYTE, const BYTE*, DWORD, UINT); /*!< Write Sector(s) when _USE_WRITE = 0       */
-  DRESULT (*disk_write_dma) (
+  DRESULT (*disk_write)      (BYTE, const BYTE*, DWORD, UINT); 			/*!< Write Sector(s) when _USE_WRITE = 0       */
+  DRESULT (*disk_write_dma) (											/*!< Start a non-blocking write via DMA		   */
     BYTE pdrv, const BYTE* buff, DWORD sector, UINT count, bool multi, bool isInitialised
   );
   #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
-  DRESULT (*disk_ioctl)      (BYTE, BYTE, void*);              /*!< I/O control operation when _USE_IOCTL = 1 */
+  DRESULT (*disk_ioctl)      (BYTE, BYTE, void*);              			/*!< I/O control operation when _USE_IOCTL = 1 */
 #endif /* _USE_IOCTL == 1 */
 
 }Diskio_drvTypeDef;

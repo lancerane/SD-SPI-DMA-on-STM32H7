@@ -167,17 +167,17 @@ int main(void)
 	//Open the file system
 	fres = f_mount(&FatFs, "", 1); //1=mount now
 	if (fres != FR_OK) {
-	myprintf("f_mount error (%i)\r\n", fres);
+		myprintf("f_mount error (%i)\r\n", fres);
 	while(1);
 	}
 
 	char filename[50] = "newwrite.bin";
 	fres = f_open(&fil, filename, FA_WRITE | FA_OPEN_ALWAYS | FA_CREATE_ALWAYS);
 	if(fres == FR_OK) {
-	myprintf("File opened\r\n");
+		myprintf("File opened\r\n");
 	}
 	else {
-	myprintf("f_open error (%i)\r\n", fres);
+		myprintf("f_open error (%i)\r\n", fres);
 	}
 
 	//Copy in the data
@@ -222,8 +222,6 @@ int main(void)
 	int k = 0;
 
     /* USER CODE END WHILE */
-//	if (DMAReady) {
-
 	// Start timer
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
 
@@ -238,8 +236,6 @@ int main(void)
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
 	myprintf("DMA xfer of %d bytes complete in %dms [%dkb/s]\r\n", bytesWrote, timer_val / 10, bytesWrote*10/timer_val);
 
-//	}
-
 	int j = 0;
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
 
@@ -250,7 +246,6 @@ int main(void)
 
 	myprintf("%d CPU ops performed in parallel; this corresponds to %dms of free CPU time\r\n",
 			k, timer_val / 10);
-
 
     /* USER CODE BEGIN 3 */
     f_close(&fil);

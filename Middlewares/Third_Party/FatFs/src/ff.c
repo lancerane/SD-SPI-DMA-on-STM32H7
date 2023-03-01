@@ -3750,8 +3750,8 @@ FRESULT f_write_dma (
 /**This fn is called internally to perform the bulk of f_write work, and also handles next block / tx complete
  * callbacks. Both fns are packed in like this so as to be able to use the statics retained across the state of the transfer
  */
-FRESULT _f_write_dma_next(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw_in, UINT* bw_in, bool is_btw_in) {
-
+FRESULT _f_write_dma_next(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw_in, UINT* bw_in, bool is_btw_in)
+{
 	/* Statics to retain state across callbacks */
 	static DWORD clst, sect;
 	static UINT wcnt, cc, csect, btw, blocksLeft;
@@ -3849,12 +3849,12 @@ FRESULT _f_write_dma_next(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT b
 		}
 #endif
 		fp->sect = sect;
-		blocksLeft--;
+		blocksLeft--;	 /* increment the block counter */
 		wbuff += SS(fs); /* increment this every block */
 
+		/* Logic after first block done: either complete the xfer or start the next block */
 		if (disk_write_dma (fs->drv, wbuff, sect, blocksLeft, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
-		if (blocksLeft > 0) LEAVE_FF(fs, FR_OK);
-
+		if (blocksLeft > 0) LEAVE_FF(fs, FR_OK);		/* If there are more blocks, quit after starting the DMA xfer */
 
 		/* Increment these only once all blocks are done */
 		wcnt = SS(fs) * cc;		/* Number of bytes transferred */

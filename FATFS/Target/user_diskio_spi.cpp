@@ -249,13 +249,12 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 	return 1;
 }
 
-
+/* Start the block transmission by DMA, then exit */
 int xmit_datablock_dma (	/* 1:OK, 0:Failed */
 	const BYTE *buff,	/* Ponter to 512 byte data to be sent */
 	BYTE token			/* Token */
 )
 {
-
 	HAL_StatusTypeDef ret;
 
 	if (!wait_ready(500)) return 0;		/* Wait for card ready */
@@ -328,7 +327,6 @@ BYTE send_cmd (		/* Return value: R1 resp (bit7==1:Failed to send) */
 //code.
 //If you do not wish to use cubemx, remove the "inline" from these functions here
 //and in the associated .h
-
 
 /*-----------------------------------------------------------------------*/
 /* Initialize disk drive                                                 */
@@ -479,7 +477,9 @@ DRESULT USER_SPI_write (
 }
 
 /** Handle both the transfer commencement, subsequent blocks and completion
- * via the isInitialised bool (true if this is not the first fn entry)
+ * via the isInitialised bool (true if this is not the first fn entry, ie)
+ * one block has already been transferred and we are looking to either start
+ * the next or end the transfer
  */
 DRESULT USER_SPI_write_dma (
 	BYTE drv,					/* Physical drive number (0) */
