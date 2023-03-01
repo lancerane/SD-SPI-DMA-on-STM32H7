@@ -106,12 +106,12 @@ DRESULT disk_write (
 }
 
 DRESULT disk_write_dma (
-	BYTE pdrv,		/* Physical drive nmuber to identify the drive */
+	BYTE pdrv,			/* Physical drive nmuber to identify the drive */
 	const BYTE *buff,	/* Data to be written */
 	DWORD sector,		/* Sector address in LBA */
 	UINT count,        	/* Number of sectors to write */
-	bool multi,
-	bool isInitialised
+	bool multi,			/* Multiblock transfer indicator */
+	bool isInitialised	/* Second block indicator - enables additional handling of later callbacks in a single fn */
 )
 {
   DRESULT res;

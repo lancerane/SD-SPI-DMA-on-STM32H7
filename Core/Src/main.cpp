@@ -18,11 +18,13 @@
   * -> several more calls eventually culminating in HAL_SPI_Transmit which sends the data
   * byte by byte.
   *
-  * DMA version replaces this with a multi-byte HAL_SPI_Transmit_DMA call.
+  * DMA version replaces this with a multi-byte HAL_SPI_Transmit_DMA call. This is non-blocking, so after
+  * invocation the function stack is exited.
   * Multi-block writes must be done block by block, because after each there is some requisite byte
   * exchange necessary on CPU. After initiating each block transfer, it is necessary to callback to
   * perform this exchange and start transfer of the next block and then, once the final block has been transferred,
   * do the final housekeeping.
+  *
   * Significant efficiency gains: at 480MHz and SPI baud at max, DMA transfers take just over 1/10 the time of
   * equivalent CPU transfers, and during some of this time the CPU is free (it's not 100% because of CPU-mediated
   * handshakes between blocks, etc.
@@ -124,6 +126,7 @@ struct block_t {
 block_t block;
 int n_blocks = 8; //max for a multi block write seems to be 64;
 int n_blocks_done = 0;
+uint16_t timer_val;
 /* USER CODE END 0 */
 
 /**
@@ -133,7 +136,6 @@ int n_blocks_done = 0;
 int main(void)
 {
     /* USER CODE BEGIN 1 */
-	uint16_t timer_val;
 	/* USER CODE END 1 */
 
 	/* MCU Configuration--------------------------------------------------------*/
@@ -234,7 +236,11 @@ int main(void)
 
 	// Stop timer
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
-	myprintf("DMA xfer of %d bytes complete in %dms [%dkb/s]\r\n", bytesWrote, timer_val / 10, bytesWrote*10/timer_val);
+
+	myprintf(
+		"DMA xfer of %d bytes complete in %dms [%dkb/s]\r\n",
+		bytesWrote, timer_val / 10, bytesWrote*10/timer_val
+	);
 
 	int j = 0;
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
@@ -244,8 +250,10 @@ int main(void)
 	}
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
 
-	myprintf("%d CPU ops performed in parallel; this corresponds to %dms of free CPU time\r\n",
-			k, timer_val / 10);
+	myprintf(
+		"%d CPU ops performed in parallel; this corresponds to %dms of free CPU time\r\n",
+		k, timer_val / 10
+	);
 
     /* USER CODE BEGIN 3 */
     f_close(&fil);
@@ -271,7 +279,7 @@ int main(void)
     	myprintf("Read %d bytes\r\n", bytesRead);
     }
     else {
-    	myprintf("f_read error (%i)\r\n", fres);
+    	myprintf("f_read error\r\n", fres);
     }
 
     /* Readout the value that we put in earlier- should be n_blocks */
@@ -291,7 +299,7 @@ int main(void)
   /* USER CODE END 3 */
 }
 
-//
+// Cube-generated setup
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 
 	n_blocks_done ++;
@@ -299,9 +307,8 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 	FRESULT res = f_write_dma_on_block_written();
 
 	if (res != FR_OK) {
-		myprintf( "DMA write error (%i)\r\n");
+		myprintf( "DMA write error\r\n");
 	}
-
 }
 
 void MX_DMA_Init() {
@@ -310,7 +317,6 @@ void MX_DMA_Init() {
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA1_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
 
