@@ -244,8 +244,11 @@ FRESULT f_open (FIL* fp, const TCHAR* path, BYTE mode);				/* Open or create a f
 FRESULT f_close (FIL* fp);											/* Close an open file object */
 FRESULT f_read (FIL* fp, void* buff, UINT btr, UINT* br);			/* Read data from the file */
 FRESULT f_write (FIL* fp, const void* buff, UINT btw, UINT* bw);	/* Write data to the file */
-FRESULT f_write_dma (FIL* fp, const void* buff, UINT btw, UINT* bw);	/* Start a data transfer using DMA*/
-FRESULT _f_write_dma_next(FATFS* fs, FIL* fp, const BYTE* buff, UINT btw, UINT* bw, bool is_btw); /* Progress the DMA xfer. Called internally or via callback */
+FRESULT f_write_dma (												/* Start a data transfer using DMA*/
+  FIL* fp, const void* buff, UINT btw, UINT* bw);
+FRESULT _f_write_dma_next(											/* Progress the DMA xfer. Called internally or via callback */
+  FATFS* fs, FIL* fp, const BYTE* buff, UINT btw, UINT* bw, bool is_btw);
+FRESULT f_write_dma_on_block_written();								/* public interface to next block logic */
 FRESULT f_lseek (FIL* fp, FSIZE_t ofs);								/* Move file pointer of the file object */
 FRESULT f_truncate (FIL* fp);										/* Truncate the file */
 FRESULT f_sync (FIL* fp);											/* Flush cached data of the writing file */

@@ -3745,10 +3745,11 @@ FRESULT f_write_dma (
 	}
 
 	return _f_write_dma_next(fs, fp, wbuff, btw, bw, true);
-
 }
 
-
+/**This fn is called internally to perform the bulk of f_write work, and also handles next block / tx complete
+ * callbacks. Both fns are packed in like this so as to be able to use the statics retained across the state of the transfer
+ */
 FRESULT _f_write_dma_next(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw_in, UINT* bw_in, bool is_btw_in) {
 
 	/* Statics to retain state across callbacks */
@@ -3870,6 +3871,11 @@ FRESULT _f_write_dma_next(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT b
 	}
 }
 
+/** Public interface */
+FRESULT f_write_dma_on_block_written ()
+{
+	return _f_write_dma_next(NULL, NULL, NULL, 0, NULL, false);
+}
 
 /*-----------------------------------------------------------------------*/
 /* Synchronize the File                                                  */
