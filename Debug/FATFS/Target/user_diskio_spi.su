@@ -15,4 +15,4 @@
 ../FATFS/Target/user_diskio_spi.cpp:408:9:DRESULT USER_SPI_read(BYTE, BYTE*, DWORD, UINT)	24	static
 ../FATFS/Target/user_diskio_spi.cpp:447:9:DRESULT USER_SPI_write(BYTE, const BYTE*, DWORD, UINT)	24	static
 ../FATFS/Target/user_diskio_spi.cpp:484:9:DRESULT USER_SPI_write_dma(BYTE, const BYTE*, DWORD, UINT, bool, bool)	32	static
-../FATFS/Target/user_diskio_spi.cpp:548:9:DRESULT USER_SPI_ioctl(BYTE, BYTE, void*)	56	static
+../FATFS/Target/user_diskio_spi.cpp:543:9:DRESULT USER_SPI_ioctl(BYTE, BYTE, void*)	56	static

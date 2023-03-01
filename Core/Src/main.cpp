@@ -26,8 +26,6 @@
   * Significant efficiency gains: at 480MHz and SPI baud at max, DMA transfers take just over 1/10 the time of
   * equivalent CPU transfers, and during some of this time the CPU is free (it's not 100% because of CPU-mediated
   * handshakes between blocks, etc.
-
-  * TODO: Full testing to ensure data is written correctly *
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -229,7 +227,7 @@ int main(void)
 	// Start timer
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
 
-	fres = f_write_dma_start(&fil, &blocks, n_blocks*blockSize, &bytesWrote);
+	fres = f_write_dma(&fil, &blocks, n_blocks*blockSize, &bytesWrote);
 
 	// Demonstrate non-blocking; note that blocksize > 512bytes is treated as multiple blocks
 	while (n_blocks_done != blockSize / 512 * n_blocks) {

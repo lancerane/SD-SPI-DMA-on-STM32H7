@@ -3723,7 +3723,7 @@ FRESULT f_write (
 /* DMA Write methods                                                     */
 /*-----------------------------------------------------------------------*/
 
-FRESULT f_write_dma_start (
+FRESULT f_write_dma (
 	FIL* fp,			/* Pointer to the file object */
 	const void* buff,	/* Pointer to the data to be written */
 	UINT btw,			/* Number of bytes to write */
@@ -3815,7 +3815,6 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 				multi = cc > 1;
 
 				// DMA: non-blocking, so once it's started, quit the function stack
-//				if (disk_write_dma_start(fs->drv, wbuff, sect, cc) != 0) ABORT(fs, FR_DISK_ERR);
 				if (disk_write_dma (fs->drv, wbuff, sect, cc, multi, false) != RES_OK) ABORT(fs, FR_DISK_ERR);
 				LEAVE_FF(fs, FR_OK);
 		}
@@ -3853,13 +3852,16 @@ FRESULT f_write_dma_end(FATFS* fs_in, FIL* fp_in, const BYTE* wbuff_in, UINT btw
 		blocksLeft--;
 		wbuff += SS(fs);
 
-		if (blocksLeft > 0){
-			if (disk_write_dma (fs->drv, wbuff, sect, blocksLeft, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
-			LEAVE_FF(fs, FR_OK);
+		if (disk_write_dma (fs->drv, wbuff, sect, blocksLeft, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
+		if (blocksLeft > 0) LEAVE_FF(fs, FR_OK);
 
-		} else {
-			if (disk_write_dma (fs->drv, NULL, sect, 0, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
-		}
+//		if (blocksLeft > 0){
+//			if (disk_write_dma (fs->drv, wbuff, sect, blocksLeft, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
+//			LEAVE_FF(fs, FR_OK);
+//
+//		} else {
+//			if (disk_write_dma (fs->drv, NULL, sect, 0, multi, true) != RES_OK) ABORT(fs, FR_DISK_ERR);
+//		}
 
 		wcnt = SS(fs) * cc;		/* Number of bytes transferred */
 
