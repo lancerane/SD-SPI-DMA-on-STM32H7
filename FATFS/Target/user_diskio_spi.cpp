@@ -491,7 +491,7 @@ DRESULT USER_SPI_write_dma (
 )
 {
 	switch (isInitialised) {
-		case false:
+		case false:										/* First entry into the function */
 
 			if (drv || !count) return RES_PARERR;		/* Check parameter */
 			if (Stat & STA_NOINIT) return RES_NOTRDY;	/* Check drive status */
@@ -512,11 +512,9 @@ DRESULT USER_SPI_write_dma (
 
 			break;
 
-	    case true:
+	    case true:											/* Entry via callback - not the first block */
 
-	    	BYTE resp;
-
-	    	// post-block handshake
+	    	BYTE resp;										/* Post-block handshake */
 	    	xchg_spi(0xFF); xchg_spi(0xFF);					/* Dummy CRC */
 			resp = xchg_spi(0xFF);							/* Receive data resp */
 			if ((resp & 0x1F) != 0x05) return RES_ERROR;	/* Function fails if the data packet was not accepted */
@@ -533,9 +531,6 @@ DRESULT USER_SPI_write_dma (
 	}
 	return RES_OK;	/* Return result */
 }
-
-
-
 
 #endif
 

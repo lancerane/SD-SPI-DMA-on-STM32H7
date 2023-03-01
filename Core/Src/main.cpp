@@ -192,20 +192,14 @@ int main(void)
 
 	/* USER CODE BEGIN WHILE */
 
-	// Simulate appending data to the file.
-
-
-	HAL_Delay(1000); //a short delay is important to let the SD card settle
+	HAL_Delay(100); //a short delay is important to let the SD card settle
 
 	/* First, perform a standard write */
 
 	// Test timer
 	// Get current time (in tenths of a ms - see timer scaling in init)
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16);
-
 	HAL_Delay(50);
-
-
 
 	// Get time elapsed
 	timer_val = __HAL_TIM_GET_COUNTER(&htim16) - timer_val;
@@ -228,8 +222,6 @@ int main(void)
 	blocks[n_blocks - 1] = block;
 
 	int k = 0;
-
-
 
     /* USER CODE END WHILE */
 //	if (DMAReady) {
@@ -289,8 +281,7 @@ int main(void)
     	myprintf("f_read error (%i)\r\n", fres);
     }
 
-    /* Readout the value that we put in earlier- should be n_blocks - in this case we're
-    testing the DMA write, since this was last */
+    /* Readout the value that we put in earlier- should be n_blocks */
     int DMA_read_val = readBlocks[n_blocks*3-1].data[dataDim - 1].imuData[10];
     int CPU_read_val = readBlocks[n_blocks*2-1].data[dataDim - 1].imuData[10];
 
@@ -303,8 +294,6 @@ int main(void)
     f_mount(NULL, "", 0);
 
     myprintf("Done\r\n");
-
-
 
   /* USER CODE END 3 */
 }
@@ -324,7 +313,6 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi) {
 
 void MX_DMA_Init() {
 
-  // MX DMA Init stuff
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
 
@@ -416,9 +404,6 @@ static void MX_SPI3_Init(void)
   /* USER CODE END SPI3_Init 1 */
   /* SPI3 parameter configuration*/
   hspi3.Instance = SPI3;
-
-//  __IO uint32_t cr2 = hspi3.Instance->CR2;
-
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
@@ -440,7 +425,6 @@ static void MX_SPI3_Init(void)
   hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
   hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
   hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
-
 
   if (HAL_SPI_Init(&hspi3) != HAL_OK)
   {
